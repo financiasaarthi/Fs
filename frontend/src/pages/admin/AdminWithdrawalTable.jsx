@@ -86,14 +86,17 @@ const AdminWithdrawalTable = () => {
   const handleBlockchainApprove = async (item) => {
     try {
       if (!window.ethereum) {
-return Swal.fire('Error', 'MetaMask or Trust Wallet not detected!', 'error');
+        return Swal.fire('Error', 'MetaMask or Trust Wallet not detected!', 'error');
       }
       
-      const provider = new ethers.providers.Web3Provider(window.ethereum);
+      // 🟢 FIX 1: Web3Provider ki jagah BrowserProvider (v6 Syntax)
+      const provider = new ethers.BrowserProvider(window.ethereum);
 
       // --- Network Check ---
-      const { chainId } = await provider.getNetwork();
-      if (chainId !== 56) {
+      const network = await provider.getNetwork();
+      const chainId = network.chainId; // Note: v6 mein chainId 'bigint' hota hai
+
+      if (chainId !== 56n) { // 56n is BigInt for BSC Mainnet
         const switchNet = await Swal.fire({
           title: 'Wrong Network',
           text: 'Aapka wallet BSC par nahi hai. Switch karein?',
@@ -108,8 +111,9 @@ return Swal.fire('Error', 'MetaMask or Trust Wallet not detected!', 'error');
         } else return;
       }
 
+      // 🟢 FIX 2: eth_requestAccounts send karna aur Signer ko await karna
       await provider.send("eth_requestAccounts", []);
-      const signer = provider.getSigner();
+      const signer = await provider.getSigner();
 
       // USDT Contract Config
       const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
@@ -122,16 +126,20 @@ return Swal.fire('Error', 'MetaMask or Trust Wallet not detected!', 'error');
       // --- BALANCE CHECK LOGIC ---
       const adminAddress = await signer.getAddress();
       const balance = await contract.balanceOf(adminAddress);
-      const amountInWei = ethers.utils.parseUnits(item.netAmount.toString(), 18);
+      
+      // 🟢 FIX 3: ethers.utils.parseUnits ki jagah seedha ethers.parseUnits
+      const amountInWei = ethers.parseUnits(item.netAmount.toString(), 18);
 
-     if (balance.lt(amountInWei)) {
-  return Swal.fire({
-    title: 'Insufficient Balance',
-    text: `Your wallet only has ${ethers.utils.formatUnits(balance, 18)} USDT, but the required amount is ${item.netAmount} USDT.`,
-    icon: 'error',
-    confirmButtonColor: '#3085d6'
-  });
-}
+      // 🟢 FIX 4: v6 mein BigInt use hota hai, toh .lt() ki jagah seedha '<' use karo
+      if (balance < amountInWei) {
+        return Swal.fire({
+          title: 'Insufficient Balance',
+          // 🟢 FIX 5: ethers.utils.formatUnits ki jagah seedha ethers.formatUnits
+          text: `Your wallet only has ${ethers.formatUnits(balance, 18)} USDT, but the required amount is ${item.netAmount} USDT.`,
+          icon: 'error',
+          confirmButtonColor: '#3085d6'
+        });
+      }
 
       // --- Show Loading Spinner ---
       Swal.fire({
@@ -141,27 +149,40 @@ return Swal.fire('Error', 'MetaMask or Trust Wallet not detected!', 'error');
         didOpen: () => { Swal.showLoading(); }
       });
 
+      // Transaction Start
       const tx = await contract.transfer(item.walletAddress, amountInWei);
       
       // Update text to show transaction is pending on blockchain
       Swal.update({ text: 'Blockchain confirmation ka intezar hai...' });
       
+      // 🟢 FIX 6: wait() confirm hone ke baad receipt milti hai
       const receipt = await tx.wait(); 
 
       // --- Backend Update ---
       const idToUpdate = item.withdrawalId || item._id;
-      await api.put(`/admin/withdrawals/approve/${idToUpdate}`, { txnHash: receipt.transactionHash }, { 
+      
+      // 🟢 FIX 7: v6 mein receipt.transactionHash ki jagah receipt.hash use hota hai
+      await api.put(`/admin/withdrawals/approve/${idToUpdate}`, { 
+        txnHash: receipt.hash 
+      }, { 
         headers: { Authorization: `Bearer ${token}` } 
       });
 
-Swal.fire('Success!', 'Payment has been sent successfully.', 'success');
-      fetchWithdrawals();
+      Swal.fire('Success!', 'Payment has been sent successfully.', 'success');
+      
+      // Ensure fetchWithdrawals function exists in your component to refresh the list
+      if (typeof fetchWithdrawals === 'function') fetchWithdrawals();
 
     } catch (err) {
-      console.error(err);
+      console.error("Approve Error:", err);
       let msg = err.reason || err.message;
-      if (err.code === 4001) msg = "Transaction cancel kar di gayi.";
-      if (msg.includes("insufficient funds")) msg = "Fees (BNB) ke liye balance kam hai!";
+      
+      // 🟢 Handle standard wallet errors
+      if (err.code === "ACTION_REJECTED" || err.code === 4001) {
+        msg = "Transaction cancel kar di gayi.";
+      } else if (msg.includes("insufficient funds")) {
+        msg = "Fees (BNB) ke liye balance kam hai!";
+      }
       
       Swal.fire('Failed', msg, 'error');
     }
