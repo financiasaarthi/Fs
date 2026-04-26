@@ -77,8 +77,12 @@ const Register = () => {
       const { confirmPassword, ...dataToSend } = formData;
       const res = await axios.post('/api/auth/register', dataToSend);
       
+      // 🟢 FIXED: Backend 'user' object bhej raha hai, isliye res.data.user.userId aayega.
+      // Humne dono conditions daal di hain taaki local aur live dono jagah chal jaye.
+      const newUserId = res.data?.user?.userId || res.data?.userId;
+
       setRegisteredData({
-        userId: res.data.userId, 
+        userId: newUserId, 
         password: formData.password
       });
       
@@ -202,7 +206,7 @@ const Register = () => {
               </div>
             </div>
 
-            {/* Sponsor ID (Full Width on Mobile, Full Width on Desktop via col-span-2) */}
+            {/* Sponsor ID */}
             <div className="md:col-span-2">
               <label className="block text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1.5 ml-1">Sponsor ID</label>
               <div className="relative group">
@@ -211,7 +215,7 @@ const Register = () => {
               </div>
             </div>
 
-            {/* Network Position (Full Width) */}
+            {/* Network Position */}
             <div className="md:col-span-2">
               <label className="block text-[11px] font-black text-slate-700 uppercase tracking-widest mb-2 ml-1">Network Position</label>
               <div className="flex gap-3 md:gap-4">
