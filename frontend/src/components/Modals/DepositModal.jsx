@@ -14,7 +14,7 @@ const DepositModal = ({ isOpen, onClose, user, setUser }) => {
     setLoading(true);
     try {
       // 🟢 FIX 1 & 2: 'response' ko 'res' kar diya, aur 'depositAmount' ko 'amount' kar diya
-      const res = await axios.post('http://localhost:5000/api/users/add-demo-fund', {
+      const res = await axios.post('/api/users/add-demo-fund', {
         userId: user.userId, 
         amount: amount 
       });

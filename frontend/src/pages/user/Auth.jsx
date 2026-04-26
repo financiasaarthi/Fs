@@ -16,7 +16,7 @@ function Auth({ setUser }) {
     setError('');
 
     // ✅ Yahan humne naye routes set kiye hain
-    const url = isLoginView ? 'http://localhost:5000/api/login' : 'http://localhost:5000/api/register';
+    const url = isLoginView ? '/api/login' : '/api/register';
 
     try {
       const res = await axios.post(url, { username, password });

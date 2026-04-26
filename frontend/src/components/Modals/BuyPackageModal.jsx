@@ -26,7 +26,7 @@ const BuyPackageModal = ({ user, setUser, closeModal }) => {
     setMessage({ type: '', text: '' });
     try {
       // 🟢 FIX: 'users' ko 'user' kar diya taaki 404 na aaye
-      const res = await axios.get(`http://localhost:5000/api/user/check-status/${targetUserId.trim()}`);
+      const res = await axios.get(`/api/user/check-status/${targetUserId.trim()}`);
       setTargetInfo(res.data.user);
     } catch (err) {
       setTargetInfo(null);
@@ -49,7 +49,7 @@ const BuyPackageModal = ({ user, setUser, closeModal }) => {
     setLoading(true);
     try {
       // 🟢 FIX: 'users' ko 'user' kar diya
-      const response = await axios.post('http://localhost:5000/api/user/buy-package-for-user', {
+      const response = await axios.post('/api/user/buy-package-for-user', {
         buyerId: user._id, // Context wala main user jo paise de raha hai
         targetUserId: targetUserId.trim(), // Jiski ID activate karni hai
         packageAmount: Number(selectedPackage),

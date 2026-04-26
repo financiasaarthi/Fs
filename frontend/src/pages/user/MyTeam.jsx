@@ -10,7 +10,7 @@ function MyTeam({ user }) {
     const fetchTeam = async () => {
       try {
         // Naya URL aur naya parameter (userId)
-        const res = await axios.post('http://localhost:5000/api/user/my-team', {
+        const res = await axios.post('/api/user/my-team', {
           userId: user.userId || user._id
         });
         setTeamMembers(res.data);

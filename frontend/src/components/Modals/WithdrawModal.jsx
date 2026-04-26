@@ -90,7 +90,7 @@ const WithdrawModal = ({ isOpen, onClose, user, setUser }) => {
 
       // 🟢 SINGLE API CALL for all wallets
      // WithdrawModal.jsx mein bas ye ensure karna:
-const res = await axios.post('http://localhost:5000/api/user/withdraw', {
+const res = await axios.post('/api/user/withdraw', {
     userId: currentUserId,
     items: items, // Array of {source, amount}
     walletAddress: walletAddress,

@@ -15,7 +15,7 @@ function DirectTeam({ user }) {
       try {
         // ✅ Naya Endpoint: Humne backend me /api/user register kiya hai
         // Note: Agar aapne index.js me /api/users rakha hai to wahi rehne de
-        const res = await axios.post('http://localhost:5000/api/user/my-team', {
+        const res = await axios.post('/api/user/my-team', {
           userId: user.userId, // 7-digit ID bhejna hai
           type: 'direct' 
         });

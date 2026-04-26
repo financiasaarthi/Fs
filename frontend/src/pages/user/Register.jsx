@@ -75,7 +75,7 @@ const Register = () => {
 
     try {
       const { confirmPassword, ...dataToSend } = formData;
-      const res = await axios.post('http://localhost:5000/api/auth/register', dataToSend);
+      const res = await axios.post('/api/auth/register', dataToSend);
       
       setRegisteredData({
         userId: res.data.userId, 

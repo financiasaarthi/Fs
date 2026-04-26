@@ -24,7 +24,7 @@ const Dashboard = ({ user, setUser }) => {
     const fetchFreshProfile = async () => {
       if (user && user.userId) {
         try {
-          const response = await axios.get(`http://localhost:5000/api/user/profile/${user.userId}`);
+          const response = await axios.get(`/api/user/profile/${user.userId}`);
           if (response.data && response.data.user) {
             setUser(response.data.user); 
             localStorage.setItem('user', JSON.stringify(response.data.user)); 

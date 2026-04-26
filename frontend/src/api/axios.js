@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 1. Backend Base URL
 const api = axios.create({
-  baseURL: 'http://localhost:5000/api', 
+  baseURL: '/api', 
 });
 
 // 2. Request Interceptor (Auto-Token Attachment)

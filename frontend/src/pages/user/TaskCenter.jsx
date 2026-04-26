@@ -46,7 +46,7 @@ function TaskCenter({ user, setUser }) {
   const fetchRandomVideo = async () => {
     try {
       setIsLoadingVideo(true);
-      const res = await axios.get('http://localhost:5000/api/videos/random');
+      const res = await axios.get('/api/videos/random');
       setCurrentVideo(res.data);
     } catch (err) {
       console.error("Video load error", err);
@@ -88,7 +88,7 @@ function TaskCenter({ user, setUser }) {
   const handleClaimReward = async () => {
     setIsClaiming(true); 
     try {
-      const res = await axios.post('http://localhost:5000/api/user/claim-task', {
+      const res = await axios.post('/api/user/claim-task', {
         userId: user.userId 
       });
       

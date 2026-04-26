@@ -9,7 +9,7 @@ const DepositHistory = ({ user }) => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/users/deposit-history/${user.userId}`);
+        const res = await axios.get(`/api/users/deposit-history/${user.userId}`);
         setHistory(res.data);
       } catch (err) { console.error(err); }
       finally { setLoading(false); }

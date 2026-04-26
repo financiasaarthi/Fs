@@ -10,7 +10,7 @@ function ReinvestModal({ user, setUser, onClose }) {
     
     setIsLoading(true);
     try {
-      const response = await axios.post('http://localhost:5000/api/users/reinvest', {
+      const response = await axios.post('/api/users/reinvest', {
         userId: user._id,
         amount: Number(amount)
       });

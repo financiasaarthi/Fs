@@ -7,7 +7,7 @@ function AdminDashboard() {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get('http://localhost:5000/api/admin/users');
+      const res = await axios.get('/api/admin/users');
       setUsers(res.data);
     } catch (err) {
       setMessage("Error loading user data.");
@@ -22,7 +22,7 @@ function AdminDashboard() {
     if (!window.confirm("Are you sure you want to delete this user?")) return;
     
     try {
-      await axios.delete(`http://localhost:5000/api/admin/users/${id}`);
+      await axios.delete(`/api/admin/users/${id}`);
       setMessage("User deleted successfully.");
       fetchUsers(); 
     } catch (err) {

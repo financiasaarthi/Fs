@@ -15,7 +15,7 @@ function AllTeam({ user }) {
     const fetchAllTeam = async () => {
       try {
         // ✅ Endpoint Sync: Backend register /api/user se ho raha hai
-        const res = await axios.post('http://localhost:5000/api/user/my-team', {
+        const res = await axios.post('/api/user/my-team', {
           userId: user.userId,
           type: 'all' // Backend aggregation logic use karega poore tree ke liye
         });

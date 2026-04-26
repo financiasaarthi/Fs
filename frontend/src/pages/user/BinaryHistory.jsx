@@ -9,7 +9,7 @@ const BinaryHistory = ({ user }) => {
   useEffect(() => {
     const fetchHistory = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/binary/history/${user.userId}`);
+        const res = await axios.get(`/api/binary/history/${user.userId}`);
         setHistory(res.data);
       } catch (error) {
         console.error("Failed to load binary history", error);

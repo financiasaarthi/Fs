@@ -72,7 +72,7 @@ const NetworkTree = ({ user }) => {
   useEffect(() => {
     const fetchTree = async () => {
       try {
-        const res = await axios.get(`http://localhost:5000/api/network/tree/${currentUserId}`);
+        const res = await axios.get(`/api/network/tree/${currentUserId}`);
         setTreeData(res.data.tree);
       } catch (error) {
         console.error("Failed to load tree", error);
