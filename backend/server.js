@@ -46,7 +46,7 @@ app.use(express.json());
 app.use('/api', allRoutes);
 
 // 🛡️ API 404 Handler
-app.use('/api/*', (req, res) => {
+app.use('/api', (req, res) => {
   res.status(404).json({ message: "API Route Not Found!" });
 });
 
