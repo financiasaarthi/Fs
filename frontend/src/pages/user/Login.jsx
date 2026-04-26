@@ -3,6 +3,9 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { User, Lock, ShieldCheck, ArrowRight, ChevronLeft } from 'lucide-react';
 
+// 🟢 FIX 1: AuthContext se useAuth import kiya
+import { useAuth } from '../../context/AuthContext'; 
+
 // 🎨 Inline Keyframes Animations
 const styleSheet = `
   @keyframes blob {
@@ -28,8 +31,13 @@ const styleSheet = `
   }
 `;
 
-const Login = ({ setUser }) => {
+// 🟢 FIX 2: Prop se { setUser } hata diya
+const Login = () => {
   const navigate = useNavigate();
+  
+  // 🟢 FIX 3: Context se login function nikala
+  const { login } = useAuth(); 
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [formData, setFormData] = useState({ userId: "", password: "" });
@@ -46,7 +54,12 @@ const Login = ({ setUser }) => {
 
     try {
       const res = await axios.post('/api/auth/login', formData);
-      setUser(res.data.user);
+      
+      // 🟢 FIX 4: Asli 'login' function use kiya. 
+      // Kyunki backend abhi token nahi bhej raha, hum yahan ek custom token pass kar rahe hain
+      // jisse AuthContext ka 'isAuthenticated' true ho jayega.
+      login(res.data.user, `active-session-${res.data.user.userId}`);
+      
       navigate('/dashboard'); 
     } catch (err) {
       setError(err.response?.data?.message || "Invalid User ID or Password.");
@@ -59,16 +72,16 @@ const Login = ({ setUser }) => {
     <div className="w-full min-h-screen bg-slate-50 flex items-center justify-center p-4 font-sans relative overflow-hidden selection:bg-blue-600 selection:text-white">
       <style>{styleSheet}</style>
 
-      {/* 🟢 Animated Background Blobs */}
+      {/* Animated Background Blobs */}
       <div className="absolute top-10 left-10 w-[250px] md:w-[400px] h-[250px] md:h-[400px] bg-blue-200 rounded-full blur-[80px] md:blur-[100px] opacity-60 pointer-events-none" style={{ animation: 'blob 7s infinite' }}></div>
       <div className="absolute bottom-10 right-10 w-[250px] md:w-[400px] h-[250px] md:h-[400px] bg-indigo-200 rounded-full blur-[80px] md:blur-[100px] opacity-60 pointer-events-none" style={{ animation: 'blob 7s infinite', animationDelay: '2s' }}></div>
 
-      {/* 🔙 Back to Home Link */}
+      {/* Back to Home Link */}
       <Link to="/" className="absolute top-6 left-6 flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors z-20">
         <ChevronLeft size={18} /> Back to Home
       </Link>
 
-      {/* 🟢 LOGIN CARD */}
+      {/* LOGIN CARD */}
       <div 
         className="relative z-10 w-full max-w-[420px] bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_40px_rgba(0,0,0,0.08)] border border-white/50 p-6 md:p-10"
         style={{ animation: 'fadeInUp 0.6s ease-out forwards' }}
@@ -165,7 +178,7 @@ const Login = ({ setUser }) => {
         </div>
       </div>
       
-      {/* 🟢 Security Badge */}
+      {/* Security Badge */}
       <div className="absolute bottom-6 flex items-center text-slate-400 text-xs font-bold tracking-wider uppercase z-20" style={{ animation: 'fadeInUp 1s ease-out forwards' }}>
         <ShieldCheck size={16} className="mr-1.5 text-green-500" />
         100% Secure & Encrypted Connection

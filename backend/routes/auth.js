@@ -40,13 +40,23 @@ const generateUserId = async () => {
 // ====================== REGISTER ======================
 router.post('/register', checkFeature('allowRegistrations'), async (req, res) => {
   try {
-    const { name, mobile, email, country, password, sponsorId, deviceId, position, placementId } = req.body;
+    // 🟢 1. req.body mein 'confirmPassword' ko add kiya
+    const { name, mobile, email, country, password, confirmPassword, sponsorId, deviceId, position, placementId } = req.body;
     const userIP = getClientIP(req);
 
     const settings = await Setting.findOne() || { allowRegistrations: true }; 
     if (!settings.allowRegistrations) return res.status(400).json({ message: "Registration is currently closed by Admin." });
 
-    if (!email || !email.toLowerCase().endsWith('@gmail.com')) return res.status(400).json({ message: 'Only @gmail.com emails are accepted.' });
+    // 🟢 2. Password aur Confirm Password ka Match Check
+    if (password !== confirmPassword) {
+        return res.status(400).json({ message: "Password aur Confirm Password match nahi ho rahe hain!" });
+    }
+
+    // 🟢 3. Sirf @gmail.com allow karne ka rule (Pehle se tha, waisa hi rakha hai)
+    if (!email || !email.toLowerCase().endsWith('@gmail.com')) {
+        return res.status(400).json({ message: 'Only @gmail.com emails are accepted.' });
+    }
+    
     if (!sponsorId) return res.status(400).json({ message: 'Sponsor ID is compulsory.' });
 
     let sponsorExists = await User.findOne({ userId: parseInt(sponsorId) });
@@ -54,8 +64,11 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
     if (!sponsorExists) return res.status(400).json({ message: 'Invalid Sponsor ID.' });
     if (sponsorExists.isSponsorDeactivated) return res.status(403).json({ message: 'Policy violation: Deactivated sponsor.' });
 
-    const existingUser = await User.findOne({ $or: [{ email: email }, { mobile: mobile }] });
-    if (existingUser) return res.status(400).json({ message: existingUser.mobile === mobile ? 'Mobile already registered.' : 'Email already registered.' });
+    // 🟢 4. Ek Email / Mobile se sirf Ek Account banne ka check (Waisa hi rakha hai)
+    const existingUser = await User.findOne({ $or: [{ email: email.toLowerCase() }, { mobile: mobile }] });
+    if (existingUser) {
+        return res.status(400).json({ message: existingUser.mobile === mobile ? 'Ye Mobile number pehle se registered hai.' : 'Ye Email pehle se registered hai.' });
+    }
 
     // IP Check
     const isLocalIP = userIP === '127.0.0.1' || userIP === '::1';
@@ -75,7 +88,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
         if (accountsOnDevice >= 2) return res.status(403).json({ message: "Limit Exceeded for this device." });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // 🔴 bcrypt hash ko hata diya gaya hai. Ab seedha generateUserId() call hoga.
     const userId = await generateUserId();
 
     const user = new User({
@@ -83,9 +96,9 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       username: name || 'User', 
       name, 
       mobile, 
-      email, 
+      email: email.toLowerCase(), // Email ko lowercase mein save karna safe hota hai
       country: country || 'Unknown',
-      password: hashedPassword, 
+      password: password, // 🟢 5. Password ab PLAIN TEXT mein save hoga
       transactionPassword: '123456', 
       sponsorId: parseInt(sponsorId),
       placementId: placementId ? parseInt(placementId) : parseInt(sponsorId), 
@@ -97,10 +110,10 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     await user.save();
 
-    // 🔴 EMAIL SENDING BYPASSED HERE
+    // EMAIL SENDING BYPASSED HERE
     console.log(`✅ User ${userId} Registered. (Email sending skipped for local dev)`);
 
-    res.status(201).json({ message: 'User registered successfully.', userId: user.userId, name: user.name, password: password });
+    res.status(201).json({ message: 'User registered successfully.', userId: user.userId, name: user.name, password: user.password });
 
   } catch (err) {
     console.error('❌ Register error:', err);
