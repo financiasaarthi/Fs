@@ -51,13 +51,14 @@ app.use('/api', (req, res) => {
 });
 
 // ====================== 3. FRONTEND SERVING (Vite dist folder) ======================
+// ====================== 3. FRONTEND SERVING (Vite dist folder) ======================
 if (process.env.NODE_ENV === 'production') {
-  // Vite 'dist' folder banata hai, 'build' nahi
   const frontendPath = path.join(__dirname, '../frontend/dist');
   
   app.use(express.static(frontendPath));
   
-  app.get('/*', (req, res) => {
+  // 🟢 FIXED: '/*' ki jagah '(.*)' use karein (Naye Express engine ke liye)
+  app.get('(.*)', (req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
