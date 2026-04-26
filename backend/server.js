@@ -13,7 +13,6 @@ const User = require('./models/User');
 const app = express();
 
 // 🔥 ZAROORI: NGINX & Real IP Support
-// Jab Nginx peeche se request bhejta hai, toh asli User IP milne ke liye ye zaroori hai
 app.set('trust proxy', true);
 
 // ====================== 1. CORS SETUP (Production Ready) ======================
@@ -21,7 +20,6 @@ const allowedOrigins = [
   'http://localhost:5173', 
   'http://127.0.0.1:5173',
   'http://localhost:5000',
-  // 🟢 LIVE DOMAINS (Inhe apne asli domain se replace karein)
   'https://financialsaarthi.live',
   'https://www.financialsaarthi.live'
 ];
@@ -51,14 +49,14 @@ app.use('/api', (req, res) => {
 });
 
 // ====================== 3. FRONTEND SERVING (Vite dist folder) ======================
-// ====================== 3. FRONTEND SERVING (Vite dist folder) ======================
 if (process.env.NODE_ENV === 'production') {
   const frontendPath = path.join(__dirname, '../frontend/dist');
   
   app.use(express.static(frontendPath));
   
-  // 🟢 FIXED: '/*' ki jagah '(.*)' use karein (Naye Express engine ke liye)
-  app.get('(.*)', (req, res) => {
+  // 🟢 ULTIMATE FIX: Bina kisi '*' ya string ke seedha app.use() lagaya hai.
+  // Ab path-to-regexp library ka koi error nahi aayega!
+  app.use((req, res) => {
     res.sendFile(path.join(frontendPath, 'index.html'));
   });
 } else {
@@ -73,7 +71,6 @@ mongoose.connect(process.env.MONGO_URI)
     console.log('✅ MongoDB connected successfully');
 
     // 👑 AUTO-CREATE ROOT USER (ID: 1000000)
-    // Hum ise role 'user' de rahe hain taaki binary tree sahi chale
     try {
       const rootExists = await User.findOne({ userId: 1000000 });
       if (!rootExists) {
@@ -88,7 +85,7 @@ mongoose.connect(process.env.MONGO_URI)
           placementId: 0,
           position: 'NONE',
           isActive: true,
-          role: 'user', // 👈 User hi rakha hai taaki network tree shuru ho sake
+          role: 'user', 
           walletBalance: 0
         }).save({ validateBeforeSave: false });
 
