@@ -56,11 +56,14 @@ const Register = () => {
     setError(""); 
   };
 
-  const handleSubmit = async (e) => {
+  
+
+ const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    // 1. Frontend validation (Pehle hi check kar lo)
     if (formData.password.length < 6) {
       setError("Password must be at least 6 characters long.");
       setLoading(false);
@@ -74,11 +77,10 @@ const Register = () => {
     }
 
     try {
-      const { confirmPassword, ...dataToSend } = formData;
-      const res = await axios.post('/api/auth/register', dataToSend);
+      // 🟢 FIX: Pura 'formData' bhejo, kuch bhi delete mat karo
+      const res = await axios.post('/api/auth/register', formData);
       
-      // 🟢 FIXED: Backend 'user' object bhej raha hai, isliye res.data.user.userId aayega.
-      // Humne dono conditions daal di hain taaki local aur live dono jagah chal jaye.
+      // Backend se ID nikaalo
       const newUserId = res.data?.user?.userId || res.data?.userId;
 
       setRegisteredData({
@@ -89,6 +91,7 @@ const Register = () => {
       setIsModalOpen(true); 
 
     } catch (err) {
+      // Backend ke messages (like "Only @gmail.com") yahan dikhenge
       setError(err.response?.data?.message || "Registration Failed. Please try again.");
     } finally {
       setLoading(false);
