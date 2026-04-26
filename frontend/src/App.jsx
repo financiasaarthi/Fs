@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useLocation, Outlet } from 'react-router-dom';
-
+import { useAuth } from './context/AuthContext';
 // Layout Components
 import Navbar from './components/Navbar';
 import UserSidebar from './components/UserSidebar'; 
@@ -58,28 +58,10 @@ import AdminVideos from './pages/admin/AdminVideos';
 import './index.css';
 
 // 🟢 USER LAYOUT
-const UserLayout = ({ children, isSidebarOpen, toggleSidebar }) => (
-  <div className="flex w-full min-h-[calc(100vh-65px)] overflow-x-hidden font-sans relative">
-    <UserSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-    <div className="flex-1 p-1 sm:p-4 md:p-6 lg:p-8 bg-[#F4F5F7] w-full transition-all duration-300">
-      <div className="max-w-7xl mx-auto">
-        {children}
-      </div>
-    </div>
-  </div>
-);
+ 
 
 // 🔴 ADMIN LAYOUT
-const AdminLayout = ({ isSidebarOpen, toggleSidebar }) => (
-  <div className="flex w-full min-h-[calc(100vh-65px)] overflow-x-hidden font-sans relative">
-    <AdminSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
-    <div className="flex-1 p-2 sm:p-4 md:p-6 lg:p-8 bg-[#EEF2F5] w-full transition-all duration-300 border-l border-gray-200">
-      <div className="max-w-7xl mx-auto">
-        <Outlet /> 
-      </div>
-    </div>
-  </div>
-);
+ 
 
 const ScrollToTop = () => {
   const { pathname } = useLocation();
@@ -87,11 +69,28 @@ const ScrollToTop = () => {
   return null;
 };
 
+// Layout components same rahenge...
+const UserLayout = ({ children, isSidebarOpen, toggleSidebar }) => (
+  <div className="flex w-full min-h-[calc(100vh-65px)] overflow-x-hidden font-sans relative">
+    <UserSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+    <div className="flex-1 p-1 sm:p-4 md:p-6 lg:p-8 bg-[#F4F5F7] w-full transition-all duration-300">
+      <div className="max-w-7xl mx-auto">{children}</div>
+    </div>
+  </div>
+);
+
+const AdminLayout = ({ isSidebarOpen, toggleSidebar }) => (
+  <div className="flex w-full min-h-[calc(100vh-65px)] overflow-x-hidden font-sans relative">
+    <AdminSidebar isOpen={isSidebarOpen} toggleSidebar={toggleSidebar} />
+    <div className="flex-1 p-2 sm:p-4 md:p-6 lg:p-8 bg-[#EEF2F5] w-full transition-all duration-300 border-l border-gray-200">
+      <div className="max-w-7xl mx-auto"><Outlet /></div>
+    </div>
+  </div>
+);
+
 function App() {
-  const [user, setUser] = useState(() => {
-    const savedUser = localStorage.getItem('user');
-    return savedUser ? JSON.parse(savedUser) : null;
-  });
+  // 🟢 FIX 2: Purani local 'user' state hata di. Ab Context se le rahe hain.
+  const { user, logout } = useAuth(); 
 
   const [isAdmin, setIsAdmin] = useState(() => !!localStorage.getItem('adminToken'));
   const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 1024);
@@ -100,14 +99,6 @@ function App() {
   const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
   const isAuthPage = ['/login', '/register', '/admin/login', '/'].includes(location.pathname);
-  const isAdminPath = location.pathname.startsWith('/admin');
-
-  useEffect(() => {
-    if (isAdmin) {
-      localStorage.removeItem('user');
-      setUser(null);
-    }
-  }, [isAdmin]);
 
   useEffect(() => {
     const handleResize = () => setIsSidebarOpen(window.innerWidth > 1024);
@@ -119,37 +110,35 @@ function App() {
     <div className="flex flex-col min-h-screen bg-[#F4F5F7]">
       <ScrollToTop />
       
-      {!isAuthPage && <Navbar user={user} setUser={setUser} toggleSidebar={toggleSidebar} />}
+      {/* 🟢 FIX 3: Navbar ko ab context wala user milega */}
+      {!isAuthPage && <Navbar user={user} toggleSidebar={toggleSidebar} />}
       
       <main className="flex-1 flex relative">
         <Routes>
-          {/* 🌐 PUBLIC ROUTES (Ab aap login hone ke baad bhi Home page dekh sakte ho) */}
           <Route path="/" element={<Home />} />
           
-          {/* 🌐 AUTH ROUTES (REDIRECT HATAYA GAYA ✅) */}
-          {/* Ab agar logged-in user referral link kholta hai, toh use Register page hi dikhega */}
-          <Route path="/login" element={<Login setUser={setUser} />} />
+          {/* AUTH ROUTES */}
+          <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin/login" element={<AdminLogin setIsAdmin={setIsAdmin} />} />
 
-          {/* 🔐 USER ROUTES (Ye sab pehle jaisa secured hai) */}
-          <Route path="/dashboard" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><Dashboard user={user} setUser={setUser} /></UserLayout> : <Navigate to="/login" replace />} />
+          {/* 🔐 USER ROUTES (Ab ye hamesha update honge jaise hi login hoga) */}
+          <Route path="/dashboard" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><Dashboard /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/profile" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><UserProfile /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/my-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><MyTeam user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/network-tree" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><NetworkTree user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/network-status" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><NetworkStatusPage user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/tasks" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TaskCenter user={user} setUser={setUser} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/withdraw-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><WithdrawHistory user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/deposit-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DepositHistory user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/direct-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DirectTeam user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/all-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><AllTeam user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/transfer" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TransferFunds user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/package-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} ><PackageHistory user={user} /></UserLayout> : <Navigate to="/login" replace />} />
-          <Route path="/binary-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><BinaryHistory user={user} /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/my-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><MyTeam /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/network-tree" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><NetworkTree /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/network-status" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><NetworkStatusPage /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/tasks" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TaskCenter /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/withdraw-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><WithdrawHistory /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/deposit-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DepositHistory /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/direct-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DirectTeam /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/all-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><AllTeam /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/transfer" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TransferFunds /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/package-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} ><PackageHistory /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/binary-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><BinaryHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/all-transactions" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><AllTransactions /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/wallet-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><WalletHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/convert-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><ConvertHistory /></UserLayout> : <Navigate to="/login" replace />} />
-
           {/* 👑 ADMIN ROUTES */}
           <Route 
             path="/admin" 

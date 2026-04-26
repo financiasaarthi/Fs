@@ -10,7 +10,7 @@ const userSchema = new mongoose.Schema({
   country: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin', 'promo'], default: 'user' },
   password: { type: String, required: true },
-  transactionPassword: { type: String, default: '123456' }, 
+  transactionPassword: { type: String }, 
 
   // 🛡️ Security & Multi-Account Prevention (MISSING FIELDS ADDED)
   ipAddress: { type: String, default: null }, // 👈 Iske bina 500 error aa raha tha

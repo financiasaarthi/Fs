@@ -18,24 +18,26 @@ const transactionSchema = new mongoose.Schema(
         "ROYALTY_INCOME",       // Royalty bonus
         "WITHDRAWAL",           // User ne crypto withdraw kiya
         "DEPOSIT",              // User ne USDT deposit kiya
-        'TRANSFER_SENT',     // 👈 Ye add karo
-            'TRANSFER_RECEIVED', // 👈 Ye bhi add karo
-            'INCOME_REINVEST', // 👈 Ye naya wala add kar do
+        "deposit",              // 👈 FIX: Lowercase deposit allow kiya
+        "SWEEP",                // Central wallet me fund move karne ke liye
+        "sweep",                // 👈 FIX: Lowercase sweep allow kiya
+        "TRANSFER_SENT",        // Internal transfer
+        "TRANSFER_RECEIVED",    // Internal transfer receive
+        "INCOME_REINVEST",      // Income se wapas wallet recharge
         "MANUAL_CREDIT",        // Admin ne fund diya
         "MANUAL_DEBIT"          // Admin ne fund kata
       ],
       required: true,
     },
 
-    // 🔹 2. Financial Direction
+    // 🔹 2. Financial Direction (Flexible banaya gaya hai)
     transactionType: { 
       type: String, 
-      enum: ['credit', 'debit'], 
-      required: true 
+      enum: ['credit', 'debit', 'deposit', 'withdraw'], // 👈 Options badha diye
+      default: 'credit' // 👈 FIX: "required: true" hata kar default de diya taaki script crash na ho
     },
 
-    // 🔹 3. Related Wallet (NAYA ADD KIYA: User Model ke 'wallets' object se sync karne ke liye)
-    // Isse pata chalega ki paisa main 'walletBalance' mein gaya ya 'directIncome' wale sub-wallet mein
+    // 🔹 3. Related Wallet 
     walletType: {
       type: String,
       enum: [
@@ -44,15 +46,15 @@ const transactionSchema = new mongoose.Schema(
         'direct_income',    // UserSchema.wallets.directIncome
         'matching_income',  // UserSchema.wallets.matchingIncome
         'rank_reward',      // UserSchema.wallets.rankReward
-        'royalty_income',    // UserSchema.wallets.royaltyIncome
-        'multi_wallet' // 👈 Bas ye ek line add karni hai
+        'royalty_income',   // UserSchema.wallets.royaltyIncome
+        'multi_wallet'      // IncomeToWallet conversions ke liye
       ],
       default: 'main_wallet'
     },
 
     // 🔹 4. Amounts (Number for MERN stack performance)
     amount: { type: Number, required: true },
-    grossAmount: { type: Number, default: null }, // Agar 5% withdrawal fee kat-ti hai, toh gross amount idhar aayega
+    grossAmount: { type: Number, default: null }, // Agar withdrawal fee kat-ti hai, toh gross amount aayega
 
     // 🔹 5. Inter-User Tracking (MLM ke liye must hai)
     fromUserId: { type: Number, default: null }, // Paisa kiske referral/kaam se aaya

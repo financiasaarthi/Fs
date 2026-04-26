@@ -127,47 +127,75 @@ router.post('/login', async (req, res) => {
     const { userId, password, deviceId } = req.body;
     const userIP = getClientIP(req);
 
+    // 1. User dhoondho
     const user = await User.findOne({ userId });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
+    // 2. Security Checks (IP aur Role check)
     if (user.role !== 'admin') {
         const isLocalIP = userIP === '127.0.0.1' || userIP === '::1';
         if (!isLocalIP) {
             const rule = await IpRule.findOne({ ipAddress: userIP });
             if (rule && rule.isBlocked) return res.status(403).json({ message: "IP Blocked." });
+            
             const allowedLimit = rule ? rule.limit : 5;
             const uniqueUsersOnThisIP = await LoginHistory.distinct('userId', { ipAddress: userIP });
+            
             if (uniqueUsersOnThisIP.length >= allowedLimit && !uniqueUsersOnThisIP.includes(user.userId)) {
                 return res.status(403).json({ message: `IP Limit reached.` });
             }
         }
     }
 
+    // 3. Device Block Check
     if (deviceId) {
         const isDeviceBlocked = await BlockedDevice.findOne({ deviceId });
         if (isDeviceBlocked) return res.status(403).json({ message: "Device Blocked." });        
     }
 
+    // 4. Maintenance/Login Disable Check
     const settings = await Setting.findOne();
     if (settings) {
         if (settings.maintenanceMode && user.role !== 'admin') return res.status(503).json({ message: 'Maintenance Mode.' });
         if (!settings.allowLogin && user.role !== 'admin') return res.status(403).json({ message: 'Login is disabled.' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(401).json({ message: 'Invalid credentials' });
+    // 🟢 FIX 1: Plain Password Comparison
+    // Ab bcrypt use nahi hoga, seedha string match hoga
+    if (user.password !== password) {
+        return res.status(401).json({ message: 'Invalid credentials' });
+    }
 
+    // 5. Account Block Check
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked.' });
 
+    // 6. User Login Info Update
     user.ipAddress = userIP; 
     if (deviceId) user.deviceId = deviceId;
     await user.save();
 
-    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '15m' });
+    // 🟢 FIX 2: Token Expiry (15m se badha kar 30 days kar diya)
+    // Isse baar-baar logout hone wali problem khatam ho jayegi
+    const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '30d' });
 
-    try { await LoginHistory.create({ userId: user.userId, name: user.name, mobile: user.mobile, ipAddress: userIP }); } catch (e) {}
+    // 7. Login History Create
+    try { 
+        await LoginHistory.create({ 
+            userId: user.userId, 
+            name: user.name, 
+            mobile: user.mobile, 
+            ipAddress: userIP 
+        }); 
+    } catch (e) {
+        console.log("Login history log error");
+    }
 
-    res.json({ message: 'Login successful', token, user: sanitizeUser(user) });
+    // 8. Final Response
+    res.json({ 
+        message: 'Login successful', 
+        token, 
+        user: sanitizeUser(user) 
+    });
 
   } catch (err) {
     console.error("Login Error:", err);

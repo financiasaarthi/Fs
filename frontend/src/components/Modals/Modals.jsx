@@ -3,9 +3,11 @@ import WithdrawModal from './WithdrawModal';
 import DepositModal from './DepositModal';
 import TransferModal from './TransferModal';
 import BuyPackageModal from './BuyPackageModal';
-import IncomeToWalletModal from './IncomeToWalletModal'; // 🟢 Naya Import
+import IncomeToWalletModal from './IncomeToWalletModal';
 
-const Modals = ({ user, setUser, modalState, setModalState }) => {
+// 🟢 FIX 1: Props se 'user' aur 'setUser' hata diya gaya hai
+const Modals = ({ modalState, setModalState }) => {
+  
   // Modal band karne ka function
   const closeModal = (modalName) => {
     setModalState((prev) => ({ ...prev, [modalName]: false }));
@@ -18,8 +20,7 @@ const Modals = ({ user, setUser, modalState, setModalState }) => {
         <WithdrawModal 
           isOpen={modalState.withdraw} 
           onClose={() => closeModal('withdraw')} 
-          user={user} 
-          setUser={setUser} 
+          // ❌ user={user} setUser={setUser} HATA DIYA
         />
       )}
 
@@ -28,8 +29,7 @@ const Modals = ({ user, setUser, modalState, setModalState }) => {
         <DepositModal 
           isOpen={modalState.deposit} 
           onClose={() => closeModal('deposit')} 
-          user={user} 
-          setUser={setUser} 
+          // ✅ Ye ab seedha Context se data lega
         />
       )}
 
@@ -38,8 +38,6 @@ const Modals = ({ user, setUser, modalState, setModalState }) => {
         <TransferModal 
           isOpen={modalState.transfer} 
           onClose={() => closeModal('transfer')} 
-          user={user} 
-          setUser={setUser} 
         />
       )}
 
@@ -48,18 +46,14 @@ const Modals = ({ user, setUser, modalState, setModalState }) => {
         <BuyPackageModal 
           isOpen={modalState.buyPackage} 
           closeModal={() => closeModal('buyPackage')} 
-          user={user} 
-          setUser={setUser} 
         />
       )}
 
-      {/* 🟢 5. Income to Main Wallet Modal (Naya Add Kiya) */}
+      {/* 5. Income to Main Wallet Modal */}
       {modalState.incomeToWallet && (
         <IncomeToWalletModal 
           isOpen={modalState.incomeToWallet} 
           onClose={() => closeModal('incomeToWallet')} 
-          user={user} 
-          setUser={setUser} 
         />
       )}
     </>

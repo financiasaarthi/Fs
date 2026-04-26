@@ -9,6 +9,9 @@ const BinaryHistory = require('../models/BinaryHistory');
 const Deposit = require('../models/Deposit');
 const Transaction = require('../models/Transaction');
 
+  const authMiddleware = require('../middleware/authMiddleware'); 
+ 
+
  const auth = require('../middleware/auth');
 
 // 🎯 POST /api/user/claim-task (With Capping Logic)
@@ -146,7 +149,7 @@ router.post('/buy-package-for-user', async (req, res) => {
         const amount = Number(packageAmount);
         if (amount < 10) return res.status(400).json({ message: "Minimum package amount is $10" });
 
-        const buyer = await User.findOne({ _id: buyerId }); 
+        const buyer = await User.findOne({ userId: buyerId }); 
         if (!buyer) return res.status(404).json({ message: "Buyer account not found." });
 
         if (buyer.transactionPassword !== transactionPassword) {
@@ -720,7 +723,7 @@ router.get('/profile/:id', async (req, res) => {
         const { id } = req.params;
         const user = await User.findOne({ 
             $or: [
-                { _id: mongoose.isValidObjectId(id) ? id : null }, 
+                { userId: mongoose.isValidObjectId(id) ? id : null }, 
                 { userId: id }, 
                 { userId: Number(id) }
             ].filter(Boolean)
@@ -763,7 +766,7 @@ router.post('/my-team', async (req, res) => {
     try {
         const { userId, type } = req.body;
         const userDoc = await User.findOne({ 
-            $or: [{ _id: mongoose.isValidObjectId(userId) ? userId : null }, { userId: userId }] 
+            $or: [{ userId: mongoose.isValidObjectId(userId) ? userId : null }, { userId: userId }] 
         });
         if (!userDoc) return res.status(404).json({ message: "User not found" });
 
@@ -846,11 +849,25 @@ router.post('/add-demo-fund', async (req, res) => {
 });
 
 // 6. Deposit History
-router.get('/deposit-history/:userId', async (req, res) => {
+// Upar jahan baaki imports hain, wahan authMiddleware zaroor import karna
+// const authMiddleware = require('../middleware/authMiddleware'); 
+// const Deposit = require('../models/Deposit'); // Ensure model is imported
+
+router.get('/deposit-history/:userId', authMiddleware, async (req, res) => {
     try {
+        // 🛡️ Extra Security (Optional but recommended):
+        // Ensure user is fetching their own data
+        // if (req.user.userId !== req.params.userId) {
+        //     return res.status(403).json({ message: "Unauthorized access" });
+        // }
+
         const history = await Deposit.find({ userId: req.params.userId }).sort({ createdAt: -1 });
-        res.json(history);
-    } catch (err) { res.status(500).json({ message: "Error" }); }
+        
+        res.status(200).json(history);
+    } catch (err) { 
+        console.error("Deposit History Error:", err);
+        res.status(500).json({ message: "Internal Server Error" }); 
+    }
 });
 
 

@@ -1,18 +1,30 @@
 import React from 'react';
 import { Menu, LogOut, User } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
+// 🟢 FIX 1: useAuth import kiya
+import { useAuth } from '../context/AuthContext'; 
 
-const Navbar = ({ user, setUser, toggleSidebar }) => {
+const Navbar = ({ toggleSidebar }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+  // 🟢 FIX 2: Context se data aur logout function nikala
+  const { user, logout } = useAuth();
 
-  // 🟢 Path check
   const isAdmin = location.pathname.startsWith('/admin');
 
   const handleLogout = () => {
-    localStorage.clear();
-    if (!isAdmin) setUser(null);
-    navigate(isAdmin ? '/admin/login' : '/login');
+    // 🟢 FIX 3: Central logout function call kiya
+    // Ye user data aur token dono saaf kar dega
+    logout();
+
+    if (isAdmin) {
+      // Admin specific token delete karo agar hai toh
+      localStorage.removeItem('adminToken');
+      navigate('/admin/login');
+    } else {
+      navigate('/login');
+    }
   };
 
   return (
@@ -20,8 +32,6 @@ const Navbar = ({ user, setUser, toggleSidebar }) => {
       
       {/* LEFT SIDE: Logo & Toggle */}
       <div className="flex items-center gap-4">
-        
-        {/* ✅ FIXED: Ab ye button Admin aur User dono ke liye dikhega */}
         <button onClick={toggleSidebar} className="text-gray-600 lg:hidden hover:text-blue-600 transition-colors">
           <Menu size={24} />
         </button>
@@ -39,7 +49,7 @@ const Navbar = ({ user, setUser, toggleSidebar }) => {
       {/* RIGHT SIDE: Profile & Logout */}
       <div className="flex items-center space-x-5">
         
-        {/* User Info (Sirf User ke liye, Admin ke liye hide rahega) */}
+        {/* 🟢 FIX 4: User Info ab seedha context wale 'user' se aayegi */}
         {user && !isAdmin && (
           <>
             <div className="hidden sm:block text-right">

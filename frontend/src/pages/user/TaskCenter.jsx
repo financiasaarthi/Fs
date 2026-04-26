@@ -1,8 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PlayCircle, CheckCircle, Timer, Package, ArrowRight, Play } from 'lucide-react';
+import { PlayCircle, CheckCircle, Timer, Package, ArrowRight, Play, Loader2, Share2 } from 'lucide-react';
+// 🟢 Context Hook
+import { useAuth } from '../../context/AuthContext'; 
+// 🟢 Success Modal Import
+import SuccessModal from "../../components/SuccessModal";
 
-function TaskCenter({ user, setUser }) {
+function TaskCenter() {
+  const { user, updateUser, token } = useAuth();
+  
   const [activePlayingPackage, setActivePlayingPackage] = useState(null);
   const [isVideoFinished, setIsVideoFinished] = useState(false);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
@@ -11,8 +17,11 @@ function TaskCenter({ user, setUser }) {
 
   const [currentVideo, setCurrentVideo] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
-  
   const [localProgress, setLocalProgress] = useState({});
+
+  // 🟢 Success Modal States
+  const [isSuccessOpen, setIsSuccessOpen] = useState(false);
+  const [rewardData, setRewardData] = useState(null);
 
   // 📦 Package Configuration
   const packagesConfig = {
@@ -27,21 +36,21 @@ function TaskCenter({ user, setUser }) {
     ? [...user.activePackages].sort((a, b) => a - b) 
     : (user?.currentPackage ? [user.currentPackage] : []);
 
-  // 🔥 SMART SYNC: Separate Counting Logic
+  // 🔥 SMART SYNC: Using 7-Digit Numeric userId for LocalStorage
   useEffect(() => {
-    const totalDBWatched = user?.dailyVideosWatched || 0;
-    let storedProgress = JSON.parse(localStorage.getItem(`pkgProgress_${user?._id}`)) || {};
-    
-    // Agar agle din DB reset hokar 0 ho gaya, toh local storage bhi 0 kar do
-    if (totalDBWatched === 0) {
-      storedProgress = {};
-      activePackages.forEach(pkg => storedProgress[pkg] = 0);
-      localStorage.setItem(`pkgProgress_${user?._id}`, JSON.stringify(storedProgress));
-      setLocalProgress(storedProgress);
-    } else {
+    if (user?.userId) {
+      const totalDBWatched = user?.dailyVideosWatched || 0;
+      let storedProgress = JSON.parse(localStorage.getItem(`pkgProgress_${user.userId}`)) || {};
+      
+      // Agar agle din DB reset hokar 0 ho gaya, toh local storage bhi clear kar do
+      if (totalDBWatched === 0) {
+        storedProgress = {};
+        activePackages.forEach(pkg => storedProgress[pkg] = 0);
+        localStorage.setItem(`pkgProgress_${user.userId}`, JSON.stringify(storedProgress));
+      }
       setLocalProgress(storedProgress);
     }
-  }, [user?.dailyVideosWatched, user?._id]);
+  }, [user?.dailyVideosWatched, user?.userId]);
 
   const fetchRandomVideo = async () => {
     try {
@@ -59,7 +68,7 @@ function TaskCenter({ user, setUser }) {
     fetchRandomVideo();
   }, []);
 
-  // 🔥 TIMER LOGIC
+  // ⏱️ TIMER LOGIC
   useEffect(() => {
     let timer;
     if (isVideoPlaying && timeLeft > 0) {
@@ -84,29 +93,38 @@ function TaskCenter({ user, setUser }) {
     setIsVideoPlaying(true); 
   };
 
-  // 💰 CLAIM REWARD (Independent Package Counting)
+  // 💰 CLAIM REWARD (Syncing with Context + Premium Modal)
   const handleClaimReward = async () => {
+    if (!user?.userId) return;
     setIsClaiming(true); 
     try {
       const res = await axios.post('/api/user/claim-task', {
         userId: user.userId 
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
       
-      alert(res.data.message || "Task Completed Successfully! 💰");
-      
-      if (setUser && res.data.user) {
-        setUser(res.data.user); 
-        localStorage.setItem('user', JSON.stringify(res.data.user));
+      // ✅ Context ko update karo (Instant Balance & Progress sync)
+      if (res.data.user) {
+        updateUser(res.data.user);
       }
 
-      // 🟢 NAYA FIX: Jis package ka ad dekha hai, bas usi ka count badhao
+      // Update Local Storage
       setLocalProgress(prev => {
         const newProgress = { ...prev };
         newProgress[activePlayingPackage] = (newProgress[activePlayingPackage] || 0) + 1;
-        localStorage.setItem(`pkgProgress_${user._id}`, JSON.stringify(newProgress));
+        localStorage.setItem(`pkgProgress_${user.userId}`, JSON.stringify(newProgress));
         return newProgress;
       });
       
+      // 🟢 SET POPUP DATA AND OPEN MODAL (Instead of alert)
+      setRewardData({
+        amount: 0.10, // Assuming fixed reward per video based on your old code
+        packageName: packagesConfig[activePlayingPackage]?.name,
+        date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+      });
+      setIsSuccessOpen(true);
+
       setIsVideoFinished(false);
       setActivePlayingPackage(null); 
       fetchRandomVideo(); 
@@ -118,6 +136,7 @@ function TaskCenter({ user, setUser }) {
     }
   };
 
+  // YouTube logic
   const isYouTube = currentVideo?.url?.includes("youtube.com") || currentVideo?.url?.includes("youtu.be");
   const getYouTubeEmbed = (url) => {
     if (!url) return "";
@@ -128,52 +147,77 @@ function TaskCenter({ user, setUser }) {
     }
     return url;
   };
-  // 🟢 AutoPlay lagaya hai taaki click karte hi chal jaye
   const finalUrl = isYouTube ? `${getYouTubeEmbed(currentVideo?.url)}?autoplay=1&mute=0` : currentVideo?.url;
+  
+  // URL to Share
+  const shareUrl = currentVideo?.url || window.location.origin;
+  const shareMessage = encodeURIComponent("Check out this amazing video I found while completing my tasks!");
 
-  // Render Video Player Area
   const renderVideoArea = () => (
-    <div className="mt-6 animate-fadeIn">
-      <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-xl border-2 border-gray-800 flex items-center justify-center group">
-        
+    <div className="mt-6 animate-in fade-in duration-500">
+      
+      {/* 🎬 Video Player */}
+      <div className="relative w-full aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border-[4px] border-gray-900 flex items-center justify-center group">
         {!isVideoPlaying && !isVideoFinished ? (
-          // 🟢 FAKE YOUTUBE PLAYER OVERLAY (Looks like video thumbnail)
-          <div 
-            onClick={startVideoAndTimer}
-            className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-900/80 cursor-pointer hover:bg-gray-900/60 transition-all"
-          >
-            <div className="bg-red-600 text-white rounded-2xl py-3 px-6 shadow-lg group-hover:scale-110 transition-transform flex items-center justify-center">
-              <Play fill="currentColor" size={40} />
+          <div onClick={startVideoAndTimer} className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-900/80 cursor-pointer hover:bg-gray-900/60 transition-all backdrop-blur-sm">
+            <div className="bg-red-600 text-white rounded-[2rem] py-4 px-8 shadow-xl group-hover:scale-110 transition-transform flex items-center justify-center border-4 border-red-500/30">
+              <Play fill="currentColor" size={48} />
             </div>
-            <p className="text-white mt-4 font-bold tracking-wide">Click to Play & Start Timer</p>
+            <p className="text-white mt-6 font-black tracking-widest uppercase text-xs animate-pulse">Click to Start Ad Timer</p>
           </div>
         ) : (
-          // 🟢 ACTUAL VIDEO PLAYER
           isYouTube ? (
             <iframe src={finalUrl} className="w-full h-full" allow="autoplay; encrypted-media" allowFullScreen />
           ) : (
             <video src={finalUrl} controls autoPlay className="w-full h-full object-contain" />
           )
         )}
-
-        {/* ⏱ TIMER OVERLAY (Floating on Video) */}
         {isVideoPlaying && (
-          <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-2 rounded-lg flex items-center shadow-lg font-black tracking-widest z-20 animate-pulse">
+          <div className="absolute top-4 right-4 bg-red-600 text-white px-5 py-2.5 rounded-xl flex items-center shadow-lg font-black tracking-[0.2em] z-20 animate-pulse border-2 border-red-500/50">
             <Timer className="mr-2" size={18} /> 00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
           </div>
         )}
       </div>
 
-      {/* Claim Button */}
+      {/* 📱 Social Share Buttons (Always visible while video is open) */}
+      <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full text-center mb-1">Share This Video</p>
+        
+        {/* WhatsApp Share */}
+        <a 
+          href={`https://api.whatsapp.com/send?text=${shareMessage} ${encodeURIComponent(shareUrl)}`} 
+          target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+        >
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.88-.653-1.473-1.46-1.646-1.757-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          WhatsApp
+        </a>
+        
+        {/* Facebook Share */}
+     {/* Facebook Share */}
+<a 
+  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} 
+  target="_blank" rel="noreferrer"
+  className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#0e5fc9] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+>
+  <svg className="w-4 h-4 fill-current text-white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+  </svg>
+  Facebook
+</a>
+      </div>
+
+      {/* 💰 Claim Button Section */}
       {isVideoFinished && (
-        <div className="mt-6 text-center animate-fadeIn py-6 bg-green-50 rounded-2xl border-2 border-green-200 shadow-sm">
-          <h4 className="text-xl font-bold text-green-700 mb-4">Task Completed Successfully! 🎊</h4>
+        <div className="mt-8 text-center animate-in zoom-in duration-300 p-8 bg-gradient-to-b from-green-50 to-white rounded-[2rem] border-2 border-green-200 shadow-xl relative overflow-hidden">
+          <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-400/20 blur-3xl rounded-full"></div>
+          <h4 className="text-2xl font-black text-green-700 mb-6 uppercase tracking-tight relative z-10">Task Reward Ready! 🎊</h4>
           <button 
             onClick={handleClaimReward}
             disabled={isClaiming}
-            className="bg-green-600 hover:bg-green-700 text-white font-black py-4 px-12 rounded-xl shadow-lg transition-all text-lg flex items-center justify-center mx-auto gap-2 disabled:bg-green-400"
+            className="bg-green-600 hover:bg-green-700 text-white font-black py-4 px-12 rounded-2xl shadow-lg transition-all text-sm uppercase tracking-[0.2em] flex items-center justify-center mx-auto gap-3 disabled:bg-green-400 active:scale-95 relative z-10"
           >
-            {isClaiming ? "Processing Reward..." : "Claim $0.1 Reward 💰"}
+            {isClaiming ? <><Loader2 className="animate-spin" size={20} /> SYNCING...</> : "CLAIM $0.1 REWARD 💰"}
           </button>
         </div>
       )}
@@ -182,89 +226,114 @@ function TaskCenter({ user, setUser }) {
 
   if (activePackages.length === 0) {
     return (
-      <div className="max-w-4xl mx-auto bg-white p-10 rounded-2xl shadow-sm border border-gray-100 text-center">
-        <Package size={64} className="mx-auto text-gray-300 mb-4" />
-        <h2 className="text-2xl font-bold text-gray-800">No Active Packages</h2>
-        <p className="text-gray-500 mt-2">Please buy a package to start earning from daily tasks.</p>
+      <div className="max-w-4xl mx-auto bg-white p-12 rounded-[3rem] shadow-sm border border-gray-100 text-center animate-in fade-in">
+        <Package size={80} className="mx-auto text-gray-200 mb-6" />
+        <h2 className="text-3xl font-black text-gray-800 uppercase tracking-tight">No Active Packages</h2>
+        <p className="text-gray-400 font-bold mt-2 text-xs uppercase tracking-widest">Buy a package to unlock daily earning tasks.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6 px-2 md:px-0">
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-6">
-        <h2 className="text-2xl font-black text-gray-800">My Task Center</h2>
-        <p className="text-gray-500 text-sm font-medium mt-1">Select a package to complete its specific tasks.</p>
+    <>
+      <div className="max-w-4xl mx-auto space-y-6 px-2 md:px-0 py-6">
+        
+        {/* Header */}
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 mb-8 border-l-4 border-l-indigo-600 flex items-center gap-4">
+          <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600">
+             <PlayCircle size={32} />
+          </div>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-800 uppercase tracking-tight">Task Center</h2>
+            <p className="text-gray-400 text-[10px] sm:text-xs font-black mt-1 uppercase tracking-widest">Watch Ads & Earn Daily Returns</p>
+          </div>
+        </div>
+
+        {activePackages.map((pkgPrice, index) => {
+          const config = packagesConfig[pkgPrice];
+          const max = config?.maxTasks || 0;
+          const watched = localProgress[pkgPrice] || 0;
+          const isCompleted = watched >= max;
+
+          return (
+            <div key={index} className={`bg-white rounded-[2.5rem] shadow-xl border-2 ${isCompleted ? 'border-green-200 shadow-green-100/50' : 'border-indigo-50 shadow-indigo-100/30'} overflow-hidden relative transition-all duration-300`}>
+              <div className={`p-4 md:p-6 flex flex-col md:flex-row justify-between items-center border-b ${isCompleted ? 'bg-green-50/80 border-green-100' : 'bg-indigo-50/50 border-indigo-100'}`}>
+                <div className="flex items-center gap-4 w-full md:w-auto mb-4 md:mb-0">
+                  <div className={`p-3.5 rounded-2xl shadow-inner border ${isCompleted ? 'bg-green-100 text-green-600 border-green-200' : 'bg-indigo-100 text-indigo-600 border-indigo-200'}`}>
+                    <Package size={28} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-gray-800 tracking-tight">${pkgPrice} {config?.name}</h3>
+                    <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${isCompleted ? 'text-green-600' : 'text-indigo-600'}`}>
+                      {isCompleted ? 'Daily Target Hit' : 'Tasks Pending'}
+                    </p>
+                  </div>
+                </div>
+                
+                <div className="w-full md:w-auto flex justify-between md:flex-col items-center md:items-end bg-white py-3 px-6 rounded-2xl shadow-sm border border-gray-100">
+                  <p className="text-[9px] text-gray-400 font-black uppercase tracking-[0.3em] md:mb-1">Progress</p>
+                  <div className="flex items-baseline space-x-1">
+                    <span className={`text-3xl font-black ${isCompleted ? 'text-green-500' : 'text-indigo-600'}`}>{watched}</span>
+                    <span className="text-lg font-black text-gray-300">/ {max}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 md:p-8 bg-gray-50/30">
+                {isCompleted ? (
+                  <div className="flex flex-col items-center justify-center gap-3 text-green-600 font-black py-8 bg-green-50 rounded-[2rem] border border-dashed border-green-200 shadow-sm">
+                    <CheckCircle size={36} className="text-green-500 mb-2" />
+                    <span className="uppercase text-sm tracking-[0.2em] text-center">Section Completed<br/><span className="text-[10px] text-green-500">Come back tomorrow</span></span>
+                  </div>
+                ) : (
+                  <div>
+                    {activePlayingPackage === pkgPrice ? (
+                      renderVideoArea()
+                    ) : (
+                      <div className="text-center py-6">
+                        <button 
+                          onClick={() => handleOpenTask(pkgPrice)} 
+                          disabled={isLoadingVideo || activePlayingPackage !== null}
+                          className={`font-black py-5 px-10 rounded-[2rem] shadow-xl transition-all flex items-center justify-center mx-auto text-xs gap-3 uppercase tracking-[0.2em] w-full md:w-auto
+                            ${activePlayingPackage !== null 
+                              ? 'bg-gray-100 text-gray-400 cursor-not-allowed shadow-none' 
+                              : 'bg-indigo-600 hover:bg-indigo-700 text-white hover:scale-[1.02] transform active:scale-95'}`}
+                        >
+                          <PlayCircle size={24} />
+                          {isLoadingVideo ? "Syncing Server..." : `START WATCHING AD`}
+                          <ArrowRight size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {activePackages.map((pkgPrice, index) => {
-        const config = packagesConfig[pkgPrice];
-        const max = config?.maxTasks || 0;
-        const watched = localProgress[pkgPrice] || 0;
-        const isCompleted = watched >= max;
-
-        return (
-          <div key={index} className={`bg-white rounded-2xl shadow-sm border-2 ${isCompleted ? 'border-green-200' : 'border-blue-100'} overflow-hidden relative`}>
-            
-            <div className={`p-4 md:p-6 flex flex-col md:flex-row justify-between items-center border-b ${isCompleted ? 'bg-green-50 border-green-100' : 'bg-blue-50/30 border-blue-50'}`}>
-              <div className="flex items-center gap-4 w-full md:w-auto mb-4 md:mb-0">
-                <div className={`p-3 rounded-xl ${isCompleted ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                  <Package size={28} />
-                </div>
-                <div>
-                  <h3 className="text-lg md:text-xl font-black text-gray-800">${pkgPrice} {config?.name}</h3>
-                  <p className={`text-sm font-bold ${isCompleted ? 'text-green-600' : 'text-blue-600'}`}>
-                    {isCompleted ? 'All Tasks Completed' : 'Tasks Pending'}
-                  </p>
-                </div>
-              </div>
-              
-              <div className="w-full md:w-auto flex justify-between md:flex-col items-center md:items-end bg-white py-2 px-4 md:px-6 rounded-xl shadow-sm border border-gray-100">
-                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider md:mb-1">Progress</p>
-                <div className="flex items-baseline space-x-1">
-                  <span className={`text-2xl font-black ${isCompleted ? 'text-green-500' : 'text-blue-600'}`}>{watched}</span>
-                  <span className="text-lg font-bold text-gray-400">/ {max}</span>
-                </div>
-              </div>
+      {/* 🟢 PREMIUM REWARD MODAL (Type: reward) */}
+      <SuccessModal
+        isOpen={isSuccessOpen}
+        title="Reward Unlocked!"
+        message="Great job! Your ad task is complete."
+        btnText="CONTINUE EARNING"
+        type="reward" // 👈 Special 'Amber/Gold' Theme
+        onConfirm={() => setIsSuccessOpen(false)}
+      >
+        {rewardData && (
+          <div className="bg-amber-50 p-5 rounded-2xl border border-amber-100 space-y-3 text-center shadow-inner">
+            <p className="text-[10px] font-black text-amber-600 uppercase tracking-[0.2em] mb-1">Added to Wallet</p>
+            <p className="text-5xl font-black text-amber-500 mb-2">+${rewardData.amount.toFixed(2)}</p>
+            <div className="flex justify-between items-center border-t border-amber-200/50 pt-3 mt-3">
+              <span className="text-[9px] font-black text-amber-700/60 uppercase tracking-widest">{rewardData.packageName}</span>
+              <span className="text-[9px] font-black text-amber-700/60 uppercase tracking-widest">{rewardData.date}</span>
             </div>
-
-            <div className="p-4 md:p-6">
-              {isCompleted ? (
-                <div className="flex items-center justify-center gap-3 text-green-600 font-bold py-4 bg-green-50/50 rounded-xl">
-                  <CheckCircle size={24} />
-                  <span>Great job! Section completed for today.</span>
-                </div>
-              ) : (
-                <div>
-                  {activePlayingPackage === pkgPrice ? (
-                    renderVideoArea()
-                  ) : (
-                    <div className="text-center py-4">
-                      <button 
-                        onClick={() => handleOpenTask(pkgPrice)} 
-                        disabled={isLoadingVideo || activePlayingPackage !== null}
-                        className={`font-bold py-4 px-8 rounded-xl shadow-md transition-all flex items-center justify-center mx-auto text-sm md:text-[15px] gap-2 w-full md:w-auto
-                          ${activePlayingPackage !== null 
-                            ? 'bg-gray-100 text-gray-400 cursor-not-allowed' 
-                            : 'bg-gray-900 hover:bg-black text-white hover:scale-105 transform'}`}
-                      >
-                        <PlayCircle size={20} />
-                        {isLoadingVideo ? "Loading Video..." : `Open Task Player`}
-                        <ArrowRight size={16} />
-                      </button>
-                      {activePlayingPackage !== null && activePlayingPackage !== pkgPrice && (
-                        <p className="text-xs text-red-500 font-bold mt-4 bg-red-50 py-2 rounded-lg">Finish the task in the open section first.</p>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            
           </div>
-        );
-      })}
-    </div>
+        )}
+      </SuccessModal>
+    </>
   );
 }
 

@@ -55,13 +55,24 @@ const Login = () => {
     try {
       const res = await axios.post('/api/auth/login', formData);
       
-      // 🟢 FIX 4: Asli 'login' function use kiya. 
-      // Kyunki backend abhi token nahi bhej raha, hum yahan ek custom token pass kar rahe hain
-      // jisse AuthContext ka 'isAuthenticated' true ho jayega.
-      login(res.data.user, `active-session-${res.data.user.userId}`);
-      
-      navigate('/dashboard'); 
+      // 🕵️ Check karo console mein kya aa raha hai
+      console.log("Full Backend Response:", res.data);
+      console.log("Token received:", res.data.token);
+
+      if (res.data.user && res.data.token) {
+        login(res.data.user, res.data.token);
+        console.log("Login function called successfully");
+        
+        // Chota sa delay taaki context update ho jaye
+        setTimeout(() => {
+          navigate('/dashboard');
+        }, 100);
+      } else {
+        setError("Backend se pura data nahi mila.");
+      }
+
     } catch (err) {
+      console.error("Login Error Details:", err.response);
       setError(err.response?.data?.message || "Invalid User ID or Password.");
     } finally {
       setLoading(false);

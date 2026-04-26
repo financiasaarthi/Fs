@@ -45,10 +45,12 @@ export const AuthProvider = ({ children }) => {
   };
 
   // 🔵 Update User Function (Upgraded to merge data safely)
+ 
+
   const updateUser = (newUserData) => {
     setUser((prevUser) => {
-      // Purane data aur naye data ko mix kar dega, taaki koi field delete na ho
-      const updatedUser = { ...prevUser, ...newUserData };
+      // Agar purana data hai toh uske saath mix karo, nahi toh sirf naya data
+      const updatedUser = prevUser ? { ...prevUser, ...newUserData } : newUserData;
       localStorage.setItem('user', JSON.stringify(updatedUser));
       return updatedUser;
     });
