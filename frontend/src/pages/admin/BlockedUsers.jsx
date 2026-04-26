@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from "react";
 import api from "../../api/axios";
 import { FaUnlock } from "react-icons/fa";
-import MessageModal from "../../components/modals/MessageModal";
+import MessageModal from "../../components/Modals/MessageModal";
 
 const BlockedUsers = () => {
   const [users, setUsers] = useState([]);
