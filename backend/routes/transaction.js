@@ -25,6 +25,10 @@ router.get('/all', async (req, res) => {
   }
 });
 
+// routes/transaction.js file mein ye hona zaroori hai:
+
+ 
+
 // 🔹 Filtered Transactions
 router.get('/transactions/:userId', async (req, res) => {
   try {

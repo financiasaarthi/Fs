@@ -1,10 +1,9 @@
 import React from 'react';
-import { DollarSign, Zap, Users, TrendingUp, Package } from 'lucide-react';
-// 🟢 FIX 1: useAuth import kiya
+// 🟢 FIX 1: Award icon import kiya Reward card ke liye
+import { DollarSign, Zap, Users, TrendingUp, Package, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
 const IncomeStats = () => {
-  // 🟢 FIX 2: Context se user nikala
   const { user } = useAuth();
 
   // 📊 Stats array ko schema ke hisaab se map kiya
@@ -19,7 +18,7 @@ const IncomeStats = () => {
     },
     {
       name: 'Total Earned',
-      value: user?.wallets?.totalEarned || 0, // Schema: totalEarned
+      value: user?.wallets?.totalEarned || 0,
       icon: <DollarSign size={16} />,
       color: 'text-emerald-600',
       borderColor: 'border-t-emerald-500',
@@ -43,17 +42,27 @@ const IncomeStats = () => {
     },
     {
       name: 'Task Income',
-      value: user?.wallets?.taskIncome || 0, // Schema: taskIncome
+      value: user?.wallets?.taskIncome || 0,
       icon: <TrendingUp size={16} />,
       color: 'text-orange-600',
       borderColor: 'border-t-orange-500',
       bgLight: 'bg-orange-50/50'
+    },
+    {
+      // 🟢 NAYA FIX: Reward Income Add Kiya
+      name: 'Rank Reward Income',
+      value: user?.wallets?.rankReward || 0, // Schema se rankReward fetch kiya
+      icon: <Award size={16} />,
+      color: 'text-rose-600', // Premium rose color diya hai alag dikhne ke liye
+      borderColor: 'border-t-rose-500',
+      bgLight: 'bg-rose-50/50'
     }
   ];
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4">
+      {/* 🟢 FIX 2: lg:grid-cols-5 ko lg:grid-cols-6 kiya taaki 6 cards fit aa jayein */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         {stats.map((item, index) => (
           <div 
             key={index} 

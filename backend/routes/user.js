@@ -52,6 +52,7 @@ const RANK_RULES = [
 const updateUplineBusiness = async (currentPlacementId, position, amount) => {
     let nextPlacementId = currentPlacementId;
     let nextPosition = position ? position.toUpperCase() : null;
+    const todayStr = new Date().toDateString(); // Aaj ki date check karne ke liye
 
     while (nextPlacementId && nextPlacementId !== 'NONE') {
         const parent = await User.findOne({ userId: nextPlacementId });
@@ -59,7 +60,14 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
 
         if (!parent.binaryBusiness) parent.binaryBusiness = { leftVolume: 0, rightVolume: 0, totalPairsMatched: 0 };
         if (!parent.wallets) parent.wallets = { matchingIncome: 0, rankReward: 0, totalEarned: 0 };
+        
+        // Naya Din shuru hua toh daily income zero kar do
+        if (parent.lastBinaryDate !== todayStr) {
+            parent.todayBinaryIncome = 0;
+            parent.lastBinaryDate = todayStr;
+        }
 
+        // Volume add karo
         if (nextPosition === 'LEFT') parent.binaryBusiness.leftVolume += Number(amount);
         else if (nextPosition === 'RIGHT') parent.binaryBusiness.rightVolume += Number(amount);
 
@@ -67,34 +75,80 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
         const rightVol = parent.binaryBusiness.rightVolume;
 
         if (leftVol > 0 && rightVol > 0) {
+            // Kitna match hua (ex: 150 L, 120 R -> matched = 120)
             const matchedVolume = Math.min(leftVol, rightVol);
-            const binaryIncome = matchedVolume * 0.10; 
+            let binaryIncome = matchedVolume * 0.10; 
+            
+            let flushedVolume = 0;
+            let isCapped = false;
 
-            parent.wallets.matchingIncome += binaryIncome;
-            parent.wallets.totalEarned += binaryIncome;
-            parent.walletBalance += binaryIncome;
-            parent.binaryBusiness.totalPairsMatched += 1;
+            // 🎯 CAPPING LOGIC START
+            // Parent ka daily cap uske total active packages ke barabar hai (ex: $10 + $30 = $40 Cap)
+            const dailyCap = parent.activePackages ? parent.activePackages.reduce((a, b) => a + b, 0) : 0;
 
-            // PLUS-PLUS Rank Logic
-            const totalMatchedTurnover = parent.wallets.matchingIncome * 10;
-            for (const rank of RANK_RULES) {
-                const currentRankIdx = RANK_RULES.findIndex(r => r.name === parent.currentRank);
-                const potentialRankIdx = RANK_RULES.findIndex(r => r.name === rank.name);
+            if (parent.todayBinaryIncome + binaryIncome > dailyCap) {
+                // Sirf utna paisa do jitna cap bacha hai
+                const availableIncome = Math.max(0, dailyCap - parent.todayBinaryIncome);
+                binaryIncome = availableIncome;
+                isCapped = true;
 
-                if (totalMatchedTurnover >= rank.totalRequired && potentialRankIdx > currentRankIdx) {
-                    parent.currentRank = rank.name;
-                    parent.wallets.rankReward = (parent.wallets.rankReward || 0) + rank.reward;
-                    parent.walletBalance += rank.reward;
-                    parent.wallets.totalEarned += rank.reward;
-                }
+                // Flush calculate karo (Jo volume match hua par paise nahi mile)
+                const utilizedVolume = binaryIncome / 0.10;
+                flushedVolume = matchedVolume - utilizedVolume;
             }
 
-            await BinaryHistory.create({
-                userId: parent.userId, leftBusiness: leftVol, rightBusiness: rightVol,
-                matchedVolume, incomeEarned: binaryIncome,
-                carryForwardLeft: leftVol - matchedVolume, carryForwardRight: rightVol - matchedVolume
-            });
+            // Sirf tabhi aage badho agar kuch income mili ho
+            if (binaryIncome > 0 || flushedVolume > 0) {
+                parent.todayBinaryIncome += binaryIncome;
+                parent.wallets.matchingIncome += binaryIncome;
+                parent.wallets.totalEarned += binaryIncome;
+                parent.binaryBusiness.totalPairsMatched += 1;
 
+                if (binaryIncome > 0) {
+                    await Transaction.create({
+                        userId: parent.userId,
+                        amount: binaryIncome,
+                        type: 'BINARY_INCOME',
+                        transactionType: 'credit',
+                        walletType: 'matching_income', 
+                        description: `Binary Income for $${matchedVolume - flushedVolume} match.`,
+                        status: 'completed'
+                    });
+                }
+
+                // Plus-Plus Rank Logic (Same as before)
+                const totalMatchedTurnover = parent.wallets.matchingIncome * 10;
+                for (const rank of RANK_RULES) {
+                    const currentRankIdx = RANK_RULES.findIndex(r => r.name === parent.currentRank);
+                    const potentialRankIdx = RANK_RULES.findIndex(r => r.name === rank.name);
+                    if (totalMatchedTurnover >= rank.totalRequired && potentialRankIdx > currentRankIdx) {
+                        parent.currentRank = rank.name;
+                        parent.wallets.rankReward = (parent.wallets.rankReward || 0) + rank.reward;
+                        parent.wallets.totalEarned += rank.reward;
+
+                        await Transaction.create({
+                            userId: parent.userId, amount: rank.reward, type: 'RANK_REWARD',
+                            transactionType: 'credit', walletType: 'rank_reward',
+                            description: `Achieved ${rank.name} Rank`, status: 'completed'
+                        });
+                    }
+                }
+
+                // 📝 HISTORY: Frontend table ke liye perfect data
+                await BinaryHistory.create({
+                    userId: parent.userId,
+                    leftBusiness: leftVol,
+                    rightBusiness: rightVol,
+                    matchedVolume: matchedVolume - flushedVolume,
+                    flushedVolume: flushedVolume,
+                    incomeEarned: binaryIncome,
+                    carryForwardLeft: leftVol - matchedVolume, 
+                    carryForwardRight: rightVol - matchedVolume,
+                    isCapped: isCapped
+                });
+            }
+
+            // Hamesha poora matched volume minus hoga, chahe paise milein ya flush ho jayein
             parent.binaryBusiness.leftVolume -= matchedVolume;
             parent.binaryBusiness.rightVolume -= matchedVolume;
         }
@@ -163,6 +217,13 @@ router.post('/buy-package-for-user', async (req, res) => {
         const targetUser = await User.findOne({ userId: Number(targetUserId) });
         if (!targetUser) return res.status(404).json({ message: "Target User ID not found." });
 
+        // 🟢 NAYA FIX: Duplicate Package Check
+        if (targetUser.activePackages && targetUser.activePackages.includes(amount)) {
+            return res.status(400).json({ 
+                message: `User already has the $${amount} package active. Please upgrade to a different package.` 
+            });
+        }
+
         // 1. Buyer se paise kato
         buyer.walletBalance -= amount;
 
@@ -173,7 +234,7 @@ router.post('/buy-package-for-user', async (req, res) => {
         targetUser.currentPackage = Math.max(targetUser.currentPackage || 0, amount);
 
         // Capping ko Plus (+) karo
-        const newCap = (amount * 2); // Ya apne packagesConfig ke hisaab se set karo
+        const newCap = (amount * 2); 
         targetUser.totalCap = (targetUser.totalCap || 0) + newCap; 
 
         // 3. 💰 DIRECT INCOME LOGIC
@@ -182,18 +243,18 @@ router.post('/buy-package-for-user', async (req, res) => {
             const directIncome = amount * 0.10; 
             sponsor.wallets.directIncome = (sponsor.wallets.directIncome || 0) + directIncome;
             sponsor.wallets.totalEarned = (sponsor.wallets.totalEarned || 0) + directIncome;
-             await sponsor.save({ validateBeforeSave: false }); 
+            await sponsor.save({ validateBeforeSave: false }); 
 
             // 📝 HISTORY 1: SPONSOR DIRECT INCOME
             await Transaction.create({
                 userId: sponsor.userId,
                 amount: directIncome,
                 type: 'DIRECT_INCOME',
-                transactionType: 'credit', // Paisa aaya
-                walletType: 'direct_income', // 👈 Schema se sync kiya
-                fromUserId: targetUser.userId, // 👈 Pata chalega kis user se income aayi
+                transactionType: 'credit', 
+                walletType: 'direct_income', 
+                fromUserId: targetUser.userId, 
                 description: `Direct Income from User ${targetUser.userId} package activation`,
-                status: 'completed' // 🟢 NAYA FIX: 'success' ki jagah 'completed'
+                status: 'completed'
             });
         }
 
@@ -205,12 +266,12 @@ router.post('/buy-package-for-user', async (req, res) => {
             userId: buyer.userId, 
             amount: amount,
             type: 'PACKAGE_BUY',
-            transactionType: 'debit', // Paisa gaya
-            walletType: 'main_wallet', // 👈 Balance main wallet se kata
-            toUserId: targetUser.userId, // 👈 Kiske liye kharida
+            transactionType: 'debit', 
+            walletType: 'main_wallet', 
+            toUserId: targetUser.userId, 
             packageAmount: amount,
             description: `Purchased $${amount} plan for User ${targetUser.userId} (${targetUser.name})`,
-            status: 'completed' // 🟢 NAYA FIX: 'success' ki jagah 'completed'
+            status: 'completed' 
         });
 
         // 📝 HISTORY 3: TARGET USER KO PACKAGE MILA
@@ -218,12 +279,18 @@ router.post('/buy-package-for-user', async (req, res) => {
             userId: targetUser.userId,
             amount: amount,
             type: 'PACKAGE_ACTIVATION',
-            transactionType: 'credit', // Package mila
-            fromUserId: buyer.userId, // 👈 Kisne kharid kar diya
+            transactionType: 'credit', 
+            fromUserId: buyer.userId, 
             packageAmount: amount,
             description: `Package $${amount} activated by User ${buyer.userId} (${buyer.name})`,
-            status: 'completed' // 🟢 NAYA FIX: 'success' ki jagah 'completed'
+            status: 'completed' 
         });
+
+        // 🟢 NAYA FIX: BINARY VOLUME AUR INCOME TRIGGER
+        if (targetUser.placementId && targetUser.position && targetUser.position !== 'NONE') {
+            // Note: Make sure updateUplineBusiness is imported or available in this file!
+            await updateUplineBusiness(targetUser.placementId, targetUser.position, amount);
+        }
 
         res.status(200).json({ 
             message: `Successfully activated $${amount} package for ${targetUser.name}!`,
@@ -266,7 +333,7 @@ router.post('/claim-task', async (req, res) => {
         const { userId } = req.body;
 
         const user = await User.findOne({ userId: Number(userId) });
-        if (!user) return res.status(400).json({ message: "User record nahi mila!" });
+if (!user) return res.status(400).json({ message: "User record not found." });
 
         // 🟢 NAYA FIX: User ke paas jitne bhi packages hain, sabke tasks ko jod lo
         let totalMaxTasks = 0;
@@ -275,7 +342,7 @@ router.post('/claim-task', async (req, res) => {
             : (user.currentPackage ? [user.currentPackage] : []);
 
         if (activePkgs.length === 0 || !user.isActive) {
-            return res.status(400).json({ message: `Aapke paas active package nahi hai!` });
+return res.status(400).json({ message: "You do not have an active package." });
         }
 
         activePkgs.forEach(pkgAmount => {
@@ -292,15 +359,13 @@ router.post('/claim-task', async (req, res) => {
             user.isActive = false; 
             await user.save({ validateBeforeSave: false });
             return res.status(400).json({ 
-                message: `Aapke packages ki total limit ($${user.totalCap}) poori ho gayi hai. Naya package buy karein!` 
-            });
+message: `Your total package limit ($${user.totalCap}) has been reached. Please purchase a new package.`            });
         }
 
         // 🛡️ CHECK 2: Daily Limit Check (Sab packages ke tasks milakar)
         if (user.dailyVideosWatched >= totalMaxTasks) {
             return res.status(400).json({ 
-                message: "Aapka aaj ka saare packages ka quota poora ho chuka hai! Kal aana." 
-            });
+message: "Your daily quota for all packages has been completed. Please return tomorrow."            });
         }
 
         // 💰 INCOME CREDIT
@@ -395,6 +460,47 @@ router.post('/income-to-wallet', async (req, res) => {
     }
 });
 
+ 
+// 🟢 GET DIRECT INCOME HISTORY
+// 🟢 GET DIRECT INCOME HISTORY
+router.get('/direct-income/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // 🛡️ SAFETY FIX: Agar userId number nahi hai, toh yahin rok do
+        if (!userId || isNaN(userId)) {
+            return res.status(400).json({ message: "Invalid User ID format" });
+        }
+
+        const history = await Transaction.find({ 
+            userId: Number(userId),
+            type: 'DIRECT_INCOME' 
+        }).sort({ createdAt: -1 }); 
+
+        res.status(200).json(history);
+    } catch (error) {
+        console.error("Direct Income Fetch Error:", error);
+        res.status(500).json({ message: "Server error while fetching direct income" });
+    }
+});
+
+ 
+
+// 🟢 FETCH BINARY MATCHING HISTORY
+router.get('/binary-history/:userId', authMiddleware, async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // User ki history find karo aur sabse nayi date (-1) upar dikhao
+        const history = await BinaryHistory.find({ userId: Number(userId) })
+                                           .sort({ createdAt: -1 });
+
+        res.status(200).json(history);
+    } catch (error) {
+        console.error("Binary History Fetch Error:", error);
+        res.status(500).json({ message: "Server error while fetching binary history" });
+    }
+});
 
 // 🟢 GET: Income to Wallet Conversion History
 // 🟢 GET: Income to Wallet Conversion History
@@ -886,86 +992,167 @@ router.post('/check-wallet', async (req, res) => {
     }
 });
 
-// 2. Update Profile (Wallet)
-router.put('/:userId', auth, async (req, res) => {
+// =======================================================
+// 🟢 1. UPDATE PROFILE ROUTE (With Txn Password & 7-Digit ID)
+// =======================================================
+// =======================================================
+// 🟢 UPDATE PROFILE ROUTE (Login Password ya Txn Password Dono Chalega)
+// =======================================================
+router.put('/:userId', async (req, res) => {
     try {
-        const { walletAddress, oldTxnPassword } = req.body;
-        const user = await User.findOne({ userId: req.params.userId });
+        const { userId } = req.params;
+        const { name, email, mobile, walletAddress, transactionPassword } = req.body;
 
-        if (!user) return res.status(404).json({ message: "User not found" });
+        // 🛡️ 7-Digit ID check
+        if (!userId || isNaN(userId)) return res.status(400).json({ message: "Invalid User ID" });
 
-        // Verify Transaction Password
-        if (!user.txnPassword) return res.status(400).json({ message: "Txn password not set. Contact admin." });
+        const user = await User.findOne({ userId: Number(userId) });
+        if (!user) return res.status(404).json({ message: "User not found!" });
+
+        // 🛡️ SMART PASSWORD CHECK
+        let isMatch = false;
+
+        // Condition 1: Check if it matches the Plain Transaction Password
+        if (user.transactionPassword && user.transactionPassword === transactionPassword) {
+            isMatch = true;
+        } 
         
-        const isMatch = await bcrypt.compare(oldTxnPassword, user.txnPassword);
-        if (!isMatch) return res.status(400).json({ message: "Incorrect Transaction Password!" });
-
-        // Update Wallet Address
-        if (walletAddress && walletAddress !== user.walletAddress) {
-            
-            // Check uniqueness
-            const exists = await User.findOne({ walletAddress });
-            if (exists) return res.status(400).json({ message: "Wallet address already used by another user." });
-
-            // Max 2 changes per 24 hours Logic
-            const now = Date.now();
-            if (user.walletAddressChangeWindowStart && (now - user.walletAddressChangeWindowStart.getTime() < 24 * 60 * 60 * 1000)) {
-                if (user.walletAddressChangeCount >= 2) {
-                    return res.status(400).json({ message: "You can change wallet only 2 times in 24 hours." });
-                }
-                user.walletAddressChangeCount += 1;
-            } else {
-                // Reset window
-                user.walletAddressChangeWindowStart = new Date();
-                user.walletAddressChangeCount = 1;
+        // Condition 2: Agar Txn password match nahi hua, toh Main Login Password se check karo
+        if (!isMatch && user.password) {
+            const isLoginMatch = await bcrypt.compare(transactionPassword, user.password);
+            if (isLoginMatch) {
+                isMatch = true;
             }
-
-            user.walletAddress = walletAddress;
         }
 
-        await user.save();
-        res.json({ message: "Profile updated successfully", user });
+        // Agar dono mein se koi bhi match nahi hua toh 400 error do
+        if (!isMatch) {
+            return res.status(400).json({ message: "Aapka Confirm Password galat hai!" });
+        }
 
+        // Sab sahi hai, toh Profile update karo
+        if (name) user.name = name;
+        if (email) user.email = email;
+        if (mobile) user.mobile = mobile;
+        if (walletAddress) user.walletAddress = walletAddress;
+
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({ message: "Profile updated successfully!", user });
     } catch (error) {
-        res.status(500).json({ message: "Error updating profile", error: error.message });
+        console.error("Profile Update Error:", error);
+        res.status(500).json({ message: "Server error during profile update." });
     }
 });
 
-// 3. Change Password (Login & Txn)
-router.put('/change-password/:userId', auth, async (req, res) => {
+
+// =======================================================
+// 🟢 3. CHANGE LOGIN PASSWORD ROUTE (PLAIN TEXT)
+// =======================================================
+// =======================================================
+// 🟢 1. CHANGE LOGIN PASSWORD ROUTE (Sirf Login badlega)
+// =======================================================
+// =======================================================
+// 🟢 1. CHANGE LOGIN PASSWORD ROUTE
+// =======================================================
+router.put('/change-password/:userId', async (req, res) => {
     try {
-        const { oldPassword, newPassword, oldTxnPassword, newTxnPassword } = req.body;
-        const user = await User.findOne({ userId: req.params.userId });
+        const { userId } = req.params;
+        const { currentPassword, newPassword } = req.body;
 
-        if (!user) return res.status(404).json({ message: "User not found" });
-
-        // Case A: Update Login Password
-        if (oldPassword && newPassword) {
-            const isMatch = await bcrypt.compare(oldPassword, user.password);
-            if (!isMatch) return res.status(400).json({ message: "Incorrect Current Login Password!" });
-
-            const salt = await bcrypt.genSalt(10);
-            user.password = await bcrypt.hash(newPassword, salt);
+        // 🛡️ 7-Digit ID check
+        if (!userId || isNaN(userId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid User ID format!" 
+            });
         }
 
-        // Case B: Update Transaction Password
-        if (oldTxnPassword && newTxnPassword) {
-            if (!user.txnPassword) return res.status(400).json({ message: "Txn password not set." });
-            
-            const isMatch = await bcrypt.compare(oldTxnPassword, user.txnPassword);
-            if (!isMatch) return res.status(400).json({ message: "Incorrect Current Txn Password!" });
-
-            const salt = await bcrypt.genSalt(10);
-            user.txnPassword = await bcrypt.hash(newTxnPassword, salt);
+        const user = await User.findOne({ userId: Number(userId) });
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "User account not found!" 
+            });
         }
 
-        await user.save();
-        res.json({ message: "Password updated successfully" });
+        // 🟢 Plain Text Password Comparison
+        if (user.password !== currentPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "The current login password you entered is incorrect!" 
+            });
+        }
+
+        // Save new plain text password
+        user.password = newPassword;
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Login password updated successfully! 🔐" 
+        });
 
     } catch (error) {
-        res.status(500).json({ message: "Server Error", error: error.message });
+        console.error("Change Password Error:", error); 
+        res.status(500).json({ 
+            success: false, 
+            message: "Internal server error during password update." 
+        });
     }
 });
+
+
+// =======================================================
+// 🟢 2. CHANGE TRANSACTION PASSWORD ROUTE
+// =======================================================
+router.put('/change-txn-password/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { oldTxnPassword, newTxnPassword } = req.body;
+
+        // 🛡️ 7-Digit ID check
+        if (!userId || isNaN(userId)) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "Invalid User ID format!" 
+            });
+        }
+
+        const user = await User.findOne({ userId: Number(userId) });
+        if (!user) {
+            return res.status(404).json({ 
+                success: false, 
+                message: "User account not found!" 
+            });
+        }
+
+        // 🛡️ Verify Current Transaction Password
+        if (user.transactionPassword !== oldTxnPassword) {
+            return res.status(400).json({ 
+                success: false, 
+                message: "The current transaction password you entered is incorrect!" 
+            });
+        }
+
+        // Save new transaction password
+        user.transactionPassword = newTxnPassword;
+        await user.save({ validateBeforeSave: false });
+
+        res.status(200).json({ 
+            success: true, 
+            message: "Transaction password updated successfully! 🛡️" 
+        });
+
+    } catch (error) {
+        console.error("Change Txn Password Error:", error);
+        res.status(500).json({ 
+            success: false, 
+            message: "Internal server error during transaction password update." 
+        });
+    }
+});
+
 
 module.exports = router;
 

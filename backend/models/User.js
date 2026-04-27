@@ -35,6 +35,9 @@ const userSchema = new mongoose.Schema({
     totalPairsMatched: { type: Number, default: 0 }
   },
 
+  todayBinaryIncome: { type: Number, default: 0 },
+  lastBinaryDate: { type: String, default: "" },
+
   // 🟢 Package & Status
   isActive: { type: Boolean, default: false },
   currentPackage: { type: Number, default: null },

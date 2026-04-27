@@ -3,7 +3,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { 
   Home, PlaySquare, Users, Wallet, ArrowDownToLine, 
   Network, TrendingUp, Award, Layers, Send, Package, 
-  RefreshCw, History, LayoutList, ShieldCheck, LogOut 
+  RefreshCw, History, LayoutList, ShieldCheck, LogOut,
+  UserPlus // 🟢 NAYA FIX: Direct Income ke liye naya icon import kiya
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
@@ -11,37 +12,42 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
   const location = useLocation();
   const { logout } = useAuth();
   
-  // 🟢 FIX 1: Sidebar ko track karne ke liye ref banaya
   const sidebarRef = useRef(null);
 
-  // 🟢 FIX 2: "Click Outside" logic
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // Agar sidebar khula hai, aur click sidebar ke ANDAR nahi hua hai, toh band kar do
       if (isOpen && sidebarRef.current && !sidebarRef.current.contains(event.target)) {
         toggleSidebar();
       }
     };
 
-    // Screen par kahin bhi click hone par check karega
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, [isOpen, toggleSidebar]);
 
-  // 🚀 Menu Items Array
+  // 🚀 Menu Items Array (Updated with Direct Income)
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <Home size={20} /> },
     { name: 'Task Center', path: '/tasks', icon: <PlaySquare size={20} /> },
+    
+    // -- Team Section --
     { name: 'Direct Team', path: '/direct-team', icon: <Users size={20} /> },
     { name: 'All Team', path: '/all-team', icon: <Layers size={20} /> },
     { name: 'Network Tree', path: '/network-tree', icon: <Network size={20} /> }, 
+    
+    // -- Business & Income Section --
     { name: 'Rank & Business', path: '/network-status', icon: <Award size={20} /> },
     { name: 'Binary History', path: '/binary-history', icon: <TrendingUp size={20} /> },
+    { name: 'Direct Income', path: '/direct-income', icon: <UserPlus size={20} /> }, // 🟢 DIRECT INCOME ADD KIYA
     { name: 'Package History', path: '/package-history', icon: <Package size={20} /> },    
+    
+    // -- Fund Transfer Section --
     { name: 'Transfer Funds', path: '/transfer', icon: <Send size={20} /> },
     { name: 'Convert Funds', path: '/convert-history', icon: <RefreshCw size={20} /> },
+    
+    // -- History Section --
     { name: 'Deposit History', path: '/deposit-history', icon: <ArrowDownToLine size={20} /> },
     { name: 'Withdraw History', path: '/withdraw-history', icon: <Wallet size={20} /> },
     { name: 'Wallet History', path: '/wallet-history', icon: <History size={20} /> },
@@ -50,8 +56,6 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
 
   return (
     <>
-      {/* 🟢 3. FULL SCREEN OVERLAY (Mobile) */}
-      {/* Ye z-[990] par hai, jisse piche ka sab kuch block aur blur ho jayega. Ispe click karte hi sidebar band hoga. */}
       {isOpen && (
         <div 
           className="fixed top-0 left-0 w-screen h-screen bg-slate-900/60 backdrop-blur-sm z-[990] lg:hidden transition-all duration-300 cursor-pointer"
@@ -59,15 +63,13 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
         />
       )}
 
-      {/* 🟢 4. SIDEBAR CONTAINER (Ref attached here) */}
-      {/* z-[999] lagaya hai taaki ye hamesha Navbar aur Overlay ke upar rahe */}
       <aside 
         ref={sidebarRef}
         className={`bg-white border-r border-slate-200 flex flex-col transition-transform duration-300 ease-in-out fixed lg:relative z-[999] lg:z-10 top-0 lg:top-0 h-[100dvh] lg:h-[calc(100vh-65px)] 
         ${isOpen ? 'w-64 translate-x-0' : 'w-0 -translate-x-full lg:translate-x-0 lg:w-64'} shadow-2xl lg:shadow-none overflow-hidden`}
       >
         
-        {/* Mobile Close Button (Header) */}
+        {/* Mobile Close Button */}
         <div className="lg:hidden flex items-center justify-between p-4 border-b border-slate-100 bg-white">
           <span className="font-black text-indigo-600 tracking-widest uppercase">Menu</span>
           <button onClick={toggleSidebar} className="text-slate-400 hover:text-red-500 bg-slate-50 p-1.5 rounded-lg active:scale-90 transition-transform">
@@ -83,7 +85,8 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
             
             {menuItems.map((item, index) => {
               const isActive = location.pathname === item.path;
-              const isNewSection = index === 2 || index === 5 || index === 8 || index === 10;
+              // 🟢 FIX: Array ke size badhne ki wajah se index number update kiye (2, 5, 9, 11)
+              const isNewSection = index === 2 || index === 5 || index === 9 || index === 11;
 
               return (
                 <React.Fragment key={item.name}>
@@ -92,7 +95,6 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
                   <Link
                     to={item.path}
                     onClick={() => {
-                      // Click karte hi sidebar band ho jayega (Mobile par)
                       if (window.innerWidth < 1024) toggleSidebar();
                     }}
                     className={`flex items-center px-4 py-3 rounded-xl transition-all duration-200 font-bold text-sm tracking-wide group ${
@@ -112,7 +114,7 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
           </nav>
         </div>
         
-        {/* 🟢 BOTTOM FOOTER (Profile & LOGOUT) */}
+        {/* 🟢 BOTTOM FOOTER */}
         <div className="p-4 border-t border-slate-100 bg-slate-50 mt-auto shrink-0 space-y-3">
           
           <Link 
@@ -133,7 +135,7 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
           {/* 🔴 SECURE LOGOUT BUTTON */}
           <button 
             onClick={() => {
-                logout(); // Logout API call
+                logout(); 
                 if (window.innerWidth < 1024) toggleSidebar();
             }}
             className="flex items-center justify-center gap-2 w-full p-3 rounded-xl border border-red-200 bg-red-50 text-red-600 hover:bg-red-600 hover:text-white transition-all font-black text-sm shadow-sm group active:scale-95 cursor-pointer"

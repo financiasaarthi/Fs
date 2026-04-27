@@ -99,7 +99,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       email: email.toLowerCase(), // Email ko lowercase mein save karna safe hota hai
       country: country || 'Unknown',
       password: password, // 🟢 5. Password ab PLAIN TEXT mein save hoga
-      transactionPassword: '123456', 
+      transactionPassword: password, 
       sponsorId: parseInt(sponsorId),
       placementId: placementId ? parseInt(placementId) : parseInt(sponsorId), 
       position: position || 'LEFT', 

@@ -10,6 +10,10 @@ const allRoutes = require('./routes');
 const startSweeper = require('./cron/sweepJob');
 const User = require('./models/User'); 
 
+
+require('./utils/cronJobs');
+
+
 const app = express();
 
 // 🔥 ZAROORI: NGINX & Real IP Support

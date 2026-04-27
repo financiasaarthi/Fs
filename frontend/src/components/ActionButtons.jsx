@@ -28,7 +28,7 @@ const ActionButtons = ({ setModalState }) => {
       state: 'transfer'
     },
     {
-      name: 'Package',
+      name: 'Buy Package',
       icon: <Package size={18} />,
       color: 'text-amber-600',
       borderColor: 'border-t-amber-500',
@@ -37,7 +37,7 @@ const ActionButtons = ({ setModalState }) => {
     },
     // 🟢 5. Naya Convert Button add kiya
     {
-      name: 'Convert',
+      name: 'Income to Wallet',
       icon: <RefreshCw size={18} />,
       color: 'text-emerald-600',
       borderColor: 'border-t-emerald-500',

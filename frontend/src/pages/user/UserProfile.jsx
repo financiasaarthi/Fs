@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import api from '../../api/axios'; // Apne path ke hisab se adjust kar lena
+import api from '../../api/axios'; // Dhyan rahe ye path sahi ho
 import { ArrowLeftCircle, Save, Lock, User, Mail, Smartphone, Wallet, Key, ShieldCheck, CheckCircle2, AlertTriangle, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -31,8 +31,12 @@ function UserProfile() {
   });
 
   const [profileTxnPassword, setProfileTxnPassword] = useState('');
+  
+  // Login Password States
   const [loginPassword, setLoginPassword] = useState('');
   const [newLoginPassword, setNewLoginPassword] = useState('');
+  
+  // Txn Password States
   const [currentTxnPassword, setCurrentTxnPassword] = useState('');
   const [newTxnPassword, setNewTxnPassword] = useState('');
 
@@ -89,7 +93,14 @@ function UserProfile() {
 
     try {
       setLoading(true);
-      const res = await api.put(`/user/${user.userId}`, { ...formData, oldTxnPassword: profileTxnPassword }, { headers: { Authorization: `Bearer ${token}` } });
+      // 🟢 FIX 1: Send transactionPassword properly
+      const res = await api.put(`/user/${user.userId}`, { 
+          ...formData, 
+          transactionPassword: profileTxnPassword 
+      }, { 
+          headers: { Authorization: `Bearer ${token}` } 
+      });
+      
       updateUser(res.data.user || res.data);
       setProfileTxnPassword('');
       showMessage('Success', 'Profile updated successfully!', 'success');
@@ -100,22 +111,46 @@ function UserProfile() {
     }
   };
 
-  const handleChangePassword = async type => {
+  const handleChangePassword = async (type) => {
     let payload;
+    let url = `/user/change-password/${user.userId}`;
+
     if (type === 'login') {
       if (!loginPassword || !newLoginPassword) return showMessage('Error', 'Enter current and new password.', 'error');
-      payload = { oldPassword: loginPassword, newPassword: newLoginPassword };
-    } else {
+      
+      // 🟢 FIX 2: Matching EXACTLY with the backend we just fixed
+      payload = { 
+          currentPassword: loginPassword, 
+          newPassword: newLoginPassword 
+      };
+      
+    } else if (type === 'txn') {
       if (!currentTxnPassword || !newTxnPassword) return showMessage('Error', 'Enter current and new txn password.', 'error');
-      payload = { oldTxnPassword: currentTxnPassword, newTxnPassword };
+      
+      // 🟢 FIX 3: Assuming your backend has a different route for Txn password
+      // Agar backend same hai, toh Keys waise hi bhejo jo backend maangta hai.
+      payload = { 
+          oldTxnPassword: currentTxnPassword, 
+          newTxnPassword: newTxnPassword 
+      };
+      // Note: Agar aapka txn password ka route alag hai, toh yahan change kar lena (e.g., /user/change-txn-password/)
+      url = `/user/change-txn-password/${user.userId}`; 
     }
 
     try {
       setLoading(true);
-      await api.put(`/user/change-password/${user.userId}`, payload, { headers: { Authorization: `Bearer ${token}` } });
+      await api.put(url, payload, { headers: { Authorization: `Bearer ${token}` } });
+      
       showMessage('Success', `${type === 'login' ? 'Login' : 'Transaction'} Password updated!`, 'success');
-      if (type === 'login') { setLoginPassword(''); setNewLoginPassword(''); } 
-      else { setCurrentTxnPassword(''); setNewTxnPassword(''); }
+      
+      // Form Clear
+      if (type === 'login') { 
+          setLoginPassword(''); 
+          setNewLoginPassword(''); 
+      } else { 
+          setCurrentTxnPassword(''); 
+          setNewTxnPassword(''); 
+      }
     } catch (err) {
       showMessage('Failed', err.response?.data?.message || 'Password update failed.', 'error');
     } finally {
@@ -204,7 +239,7 @@ function UserProfile() {
                 </div>
               ))}
 
-              {/* Wallet Address (Editable with lock logic) */}
+              {/* Wallet Address */}
               <div>
                 <label className="block text-[11px] font-black text-slate-700 uppercase tracking-widest mb-1.5 ml-1">USDT Wallet (BEP20)</label>
                 <div className="relative group">
