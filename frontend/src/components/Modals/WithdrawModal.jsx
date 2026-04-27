@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { Landmark, X, DollarSign, AlertCircle, CheckCircle2, PlaySquare, Users, Network, Award, Crown, Wallet, Lock, Loader2 } from 'lucide-react';
-// 🟢 FIX 1: useAuth import kiya
 import { useAuth } from '../../context/AuthContext'; 
 
 const WithdrawModal = ({ isOpen, onClose }) => {
-  // 🟢 FIX 2: Props se data hata kar Context se nikala
   const { user, updateUser, token } = useAuth(); 
 
   const [amounts, setAmounts] = useState({}); 
   const [walletAddress, setWalletAddress] = useState('');
   const [transactionPassword, setTransactionPassword] = useState('');
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [successData, setSuccessData] = useState(null); // Success Animation ke liye
 
+  // Smart Address Logic: Agar DB mein hai toh use karo aur lock kar do
   const isAddressMissing = !(user?.walletAddress);
 
   useEffect(() => {
@@ -43,19 +43,10 @@ const WithdrawModal = ({ isOpen, onClose }) => {
   const handleWithdraw = async (e) => {
     e.preventDefault();
     setError('');
-    setSuccess('');
     
-    // 🛡️ Safety Check
-    if (!user || !user.userId) {
-      setError("User session not found! Please login again.");
-      return;
-    }
+    if (!user || !user.userId) return setError("User session not found! Please login again.");
+    if (totalRequested < 10) return setError(`Minimum total withdrawal must be at least $10.`);
 
-    if (totalRequested < 10) { 
-      return setError(`Minimum total withdrawal must be at least $10.`);
-    }
-
-    // Balance validation
     for (let wallet of walletOptions) {
       const requestedForWallet = Number(amounts[wallet.id] || 0);
       if (requestedForWallet > wallet.balance) {
@@ -76,7 +67,6 @@ const WithdrawModal = ({ isOpen, onClose }) => {
           amount: Number(val)
         }));
 
-      // 🟢 API CALL
       const res = await axios.post('/api/user/withdraw', {
         userId: user.userId,
         items: items,
@@ -86,29 +76,47 @@ const WithdrawModal = ({ isOpen, onClose }) => {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      setSuccess(`Successfully requested withdrawal of $${totalRequested.toFixed(2)}.`);
-      
-      // 🟢 FIX 3: updateUser use karo
-      // Isse Dashboard ke stats turant update ho jayenge
-      if (res.data.user) {
-        updateUser(res.data.user);
-      }
+      // Update User Context immediately so dashboard stats update
+      if (res.data.user) updateUser(res.data.user);
 
+      // Trigger Pyara Success Modal
+      setSuccessData(totalRequested);
       setAmounts({});
       setTransactionPassword('');
       
+      // Close automatically after 3.5 seconds
       setTimeout(() => {
-        setSuccess('');
+        setSuccessData(null);
         onClose();
-      }, 3000);
+      }, 3500);
 
     } catch (err) {
-      setError(err.response?.data?.message || 'Withdrawal failed. Please check password.');
+      setError(err.response?.data?.message || 'Withdrawal failed. Please check your details.');
     } finally {
       setLoading(false);
     }
   };
 
+  // ================= SUCCESS ANIMATION MODAL =================
+  if (successData) {
+    return (
+      <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/80 backdrop-blur-md animate-fadeIn">
+        <div className="bg-white p-8 rounded-3xl shadow-2xl flex flex-col items-center max-w-sm w-full mx-4 transform scale-100 animate-bounce-in">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mb-6 shadow-inner">
+            <CheckCircle2 size={50} className="text-green-500 animate-pulse" />
+          </div>
+          <h2 className="text-2xl font-black text-gray-800 mb-2 uppercase tracking-tight">Success!</h2>
+          <p className="text-sm font-bold text-gray-500 mb-6 text-center">Your withdrawal request for</p>
+          <div className="text-5xl font-black text-green-600 mb-6 tracking-tighter">
+            ${successData.toFixed(2)}
+          </div>
+          <p className="text-xs font-black text-gray-400 uppercase tracking-widest">Processing Payment...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ================= MAIN MODAL =================
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-fadeIn">
       <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
@@ -126,53 +134,18 @@ const WithdrawModal = ({ isOpen, onClose }) => {
         {/* Content Area */}
         <div className="p-6 overflow-y-auto flex-1 bg-gray-50">
           
-          {/* Total Overview */}
           <div className="bg-green-100 border border-green-200 rounded-xl p-4 mb-6 flex justify-between items-center shadow-sm">
             <span className="text-green-800 font-black uppercase tracking-wide">Total Earnings Available</span>
             <span className="text-3xl font-black text-green-700">${totalAvailable.toFixed(2)}</span>
           </div>
 
           {error && <div className="mb-4 p-3 bg-red-50 text-red-600 border border-red-200 rounded-lg text-sm font-bold flex items-center"><AlertCircle size={18} className="mr-2 shrink-0"/> {error}</div>}
-          {success && <div className="mb-4 p-3 bg-green-50 text-green-700 border border-green-200 rounded-lg text-sm font-bold flex items-center"><CheckCircle2 size={18} className="mr-2 shrink-0"/> {success}</div>}
 
           <form onSubmit={handleWithdraw}>
-            {/* Security Section */}
-            <div className="p-5 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4 mb-6">
-              <h3 className="text-sm font-black text-gray-800 uppercase border-b pb-2">Security Setup</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs font-bold text-gray-500 flex items-center justify-between mb-1 uppercase">
-                    <span>USDT (BEP20) Address</span>
-                    {!isAddressMissing && <span className="text-green-600 text-[10px] bg-green-100 px-2 py-0.5 rounded-full">Locked</span>}
-                  </label>
-                  <div className="relative">
-                    <Wallet size={16} className="absolute left-3 top-3 text-gray-400" />
-                    <input 
-                      type="text" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)}
-                      disabled={!isAddressMissing} placeholder="Enter BEP20 Address"
-                      className={`w-full pl-9 pr-3 py-2.5 rounded-lg border font-bold text-sm outline-none transition-colors ${
-                        !isAddressMissing ? 'bg-gray-100 border-gray-200 text-gray-500' : 'bg-white border-gray-300'
-                      }`}
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Security Password</label>
-                  <div className="relative">
-                    <Lock size={16} className="absolute left-3 top-3 text-gray-400" />
-                    <input 
-                      type="password" value={transactionPassword} onChange={(e) => setTransactionPassword(e.target.value)}
-                      placeholder="Enter Password" required
-                      className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 focus:border-blue-500 font-bold text-sm text-gray-800 outline-none"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Inputs */}
+            
+            {/* 1. Amounts Selection */}
             <div className="space-y-4 mb-6">
+              <h3 className="text-sm font-black text-gray-800 uppercase border-b pb-2">Select Amount</h3>
               {walletOptions.map((wallet) => (
                 <div key={wallet.id} className="bg-white border border-gray-200 rounded-xl p-4 shadow-sm">
                   <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -202,7 +175,42 @@ const WithdrawModal = ({ isOpen, onClose }) => {
               ))}
             </div>
 
-            {/* Sticky Bottom Footer */}
+            {/* 2. Security Setup (Moved to Bottom, Direct Style) */}
+            <div className="p-5 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4 mb-6">
+              <h3 className="text-sm font-black text-gray-800 uppercase border-b pb-2">Security Verification</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-bold text-gray-500 flex items-center justify-between mb-1 uppercase">
+                    <span>USDT (BEP20) Address</span>
+                    {!isAddressMissing && <span className="text-green-600 text-[10px] bg-green-100 px-2 py-0.5 rounded-full">Saved</span>}
+                  </label>
+                  <div className="relative">
+                    <Wallet size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input 
+                      type="text" value={walletAddress} onChange={(e) => setWalletAddress(e.target.value)}
+                      disabled={!isAddressMissing} placeholder="Enter BEP20 Address" required
+                      className={`w-full pl-9 pr-3 py-2.5 rounded-lg border font-bold text-sm outline-none transition-colors ${
+                        !isAddressMissing ? 'bg-gray-100 border-gray-200 text-gray-500 cursor-not-allowed' : 'bg-white border-gray-300 focus:border-blue-500'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-gray-500 mb-1 uppercase">Security Password</label>
+                  <div className="relative">
+                    <Lock size={16} className="absolute left-3 top-3 text-gray-400" />
+                    <input 
+                      type="password" value={transactionPassword} onChange={(e) => setTransactionPassword(e.target.value)}
+                      placeholder="Enter Password" required
+                      className="w-full pl-9 pr-3 py-2.5 rounded-lg border border-gray-300 focus:border-blue-500 font-bold text-sm text-gray-800 outline-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. Sticky Bottom Footer */}
             <div className="sticky bottom-0 pt-4 bg-gray-50 border-t border-gray-200">
               <div className="flex justify-between items-center mb-3 px-2">
                 <span className="text-sm font-bold text-gray-600 uppercase">Total Selected:</span>
@@ -211,7 +219,7 @@ const WithdrawModal = ({ isOpen, onClose }) => {
               <button type="submit" disabled={loading || totalRequested <= 0}
                 className="w-full bg-gray-900 hover:bg-black text-white font-black py-4 rounded-xl shadow-lg transition-all text-lg disabled:bg-gray-400 flex items-center justify-center gap-2"
               >
-                {loading ? <Loader2 className="animate-spin" size={24} /> : `Withdraw $${totalRequested.toFixed(2)} Now`}
+                {loading ? <Loader2 className="animate-spin" size={24} /> : `Confirm & Withdraw $${totalRequested.toFixed(2)}`}
               </button>
             </div>
           </form>

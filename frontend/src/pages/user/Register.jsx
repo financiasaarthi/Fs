@@ -90,45 +90,59 @@ const Register = () => {
   }, [formData.sponsorId]);
 
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    setError("");
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
+  setError("");
 
-    // Frontend validation
-    if (!sponsorName) {
-      setError("Please enter a valid Sponsor ID first.");
-      setLoading(false);
-      return;
-    }
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long.");
-      setLoading(false);
-      return;
-    }
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
-      setLoading(false);
-      return;
-    }
+  // 🟢 1. Device ID Logic (Check if exists, otherwise generate)
+  let deviceId = localStorage.getItem('unique_device_id');
+  if (!deviceId) {
+    deviceId = 'WEB-' + Math.random().toString(36).substring(2, 12).toUpperCase();
+    localStorage.setItem('unique_device_id', deviceId);
+  }
 
-    try {
-      const res = await axios.post('/api/auth/register', formData);
-      const newUserId = res.data?.user?.userId || res.data?.userId;
+  // 🟢 2. Frontend Validation
+  if (!sponsorName) {
+    setError("Please enter a valid Sponsor ID first.");
+    setLoading(false);
+    return;
+  }
+  if (formData.password.length < 6) {
+    setError("Password must be at least 6 characters long.");
+    setLoading(false);
+    return;
+  }
+  if (formData.password !== formData.confirmPassword) {
+    setError("Passwords do not match!");
+    setLoading(false);
+    return;
+  }
 
-      setRegisteredData({
-        userId: newUserId, 
-        password: formData.password
-      });
-      
-      setIsModalOpen(true); 
+  try {
+    // 🟢 3. API Call (FIXED: Added deviceId into the payload)
+    const res = await axios.post('/api/auth/register', { 
+        ...formData, 
+        deviceId: deviceId // 👈 Ye bhejna zaroori tha
+    });
 
-    } catch (err) {
-      setError(err.response?.data?.message || "Registration Failed. Please try again.");
-    } finally {
-      setLoading(false);
-    }
-  };
+    const newUserId = res.data?.user?.userId || res.data?.userId;
+
+    // Success Data set karo modal ke liye
+    setRegisteredData({
+      userId: newUserId, 
+      password: formData.password
+    });
+    
+    setIsModalOpen(true); 
+
+  } catch (err) {
+    // Backend se aane wala exact error message dikhayega
+    setError(err.response?.data?.message || "Registration Failed. Please try again.");
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleModalClose = () => {
     setIsModalOpen(false);

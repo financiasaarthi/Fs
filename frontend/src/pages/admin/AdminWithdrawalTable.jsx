@@ -57,7 +57,7 @@ const AdminWithdrawalTable = () => {
 
         // Check: Agar aap Local PC par ho
         if (currentHost === "localhost" || currentHost === "127.0.0.1") {
-          targetBaseUrl = "http://localhost:3000"; // Local Main Frontend ka port
+          targetBaseUrl = "http://localhost:5173"; // Local Main Frontend ka port
         } 
         // Check: Agar aap Live Server par ho
         else {
@@ -274,11 +274,13 @@ if (!value) return 'Transaction hash is required!';
     fetchWithdrawals();
   }, [fromDate, toDate]);
 
-  const flattenedData = useMemo(() => {
+const flattenedData = useMemo(() => {
     return withdrawals.flatMap(w => {
       const schedule = Array.isArray(w.schedule) ? w.schedule : [];
+      
+      // 🔥 YAHAN FIX KIYA HAI: w.gross ko add kiya taaki database ki nayi field catch ho jaye
       const totalFee = Number(w.fee ?? 0);
-      const totalGross = Number(w.grossAmount ?? w.amount ?? 0);
+      const totalGross = Number(w.gross ?? w.grossAmount ?? w.amount ?? 0);
 
       if (schedule.length) {
         const feePerDayRaw = totalFee / schedule.length;
@@ -296,7 +298,7 @@ if (!value) return 'Transaction hash is required!';
 
           return {
             _id: `${w._id}-${idx}`, // Unique ID for table row
-            withdrawalId: w._id,     // Parent ID
+            withdrawalId: w._id,    // Parent ID
             userId: w.userId ?? '-',
             name: w.name ?? '-',
             source: w.source ?? 'ROI',
@@ -312,7 +314,10 @@ if (!value) return 'Transaction hash is required!';
       } else {
         const gross = parseFloat(totalGross.toFixed(2));
         const fee = parseFloat(totalFee.toFixed(2));
-        const net = parseFloat((gross - fee).toFixed(2));
+        
+        // 🔥 YAHAN BHI FIX KIYA HAI: Direct database ka 'net' utha lega agar available hoga
+        const net = parseFloat(Number(w.net ?? (gross - fee)).toFixed(2));
+        
         const createdAt = w.date ? new Date(w.date) : new Date(w.createdAt);
 
         return [{
@@ -508,7 +513,8 @@ if (!value) return 'Transaction hash is required!';
                     title="Copy User ID"
                   />
                 </div>
-              </td>              <td className="px-4 py-3">{w.name}</td>
+              </td>
+                            <td className="px-4 py-3">{w.name}</td>
               
               {/* Source Data Row */}
               <td className="px-4 py-3">

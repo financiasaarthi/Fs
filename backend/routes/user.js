@@ -165,32 +165,7 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
 
 
 // 🔍 GET /api/user/check-status/:userId (Verify karne ke liye)
-router.get('/check-status/:userId', async (req, res) => {
-    try {
-        const { userId } = req.params;
 
-        // User ko dhoondho (Number cast zaroori hai)
-        const user = await User.findOne({ userId: Number(userId) });
-
-        if (!user) {
-            return res.status(404).json({ message: "User not found" });
-        }
-
-        // Sirf zaroori data bhejo security ke liye
-        res.status(200).json({ 
-            user: {
-                name: user.name,
-                userId: user.userId,
-                currentPackage: user.currentPackage || 0,
-                isActive: user.isActive
-            }
-        });
-
-    } catch (error) {
-        console.error("Check Status Error:", error);
-        res.status(500).json({ message: "Server error" });
-    }
-});
 
 
 // 📦 POST /api/user/buy-package-for-user
@@ -303,6 +278,35 @@ router.post('/buy-package-for-user', async (req, res) => {
     }
 });
 
+
+
+
+router.get('/check-status/:userId', async (req, res) => {
+    try {
+        const { userId } = req.params;
+
+        // User ko dhoondho (Number cast zaroori hai)
+        const user = await User.findOne({ userId: Number(userId) });
+
+        if (!user) {
+            return res.status(404).json({ message: "User not found" });
+        }
+
+        // Sirf zaroori data bhejo security ke liye
+        res.status(200).json({ 
+            user: {
+                name: user.name,
+                userId: user.userId,
+                currentPackage: user.currentPackage || 0,
+                isActive: user.isActive
+            }
+        });
+
+    } catch (error) {
+        console.error("Check Status Error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 // GET: User ki Package History
 // GET: User ki Package History (user.js ke andar)
 // 🟢 GET: User Package History API
@@ -701,7 +705,7 @@ router.post('/withdraw', async (req, res) => {
     try {
         const { userId, items, transactionPassword, walletAddress } = req.body;
 
-        // 1. 🟢 STRICT NUMBER CHECK: Ensure userId is 7-digit number
+        // 1. User Validation
         const numericUserId = Number(userId);
         if (isNaN(numericUserId) || numericUserId === 0) {
             return res.status(400).json({ message: "Invalid User ID format!" });
@@ -715,110 +719,145 @@ router.post('/withdraw', async (req, res) => {
             return res.status(401).json({ message: "Incorrect security password!" });
         }
 
-        // 3. Validation: Sabhi selected wallets ka balance check karo
-        let totalWithdrawAmount = 0;
-        
-        // Agar items array nahi hai (single withdraw case), toh empty array handle karo
+        // 3. Process Multiple Wallets (Gross Calculation)
+        let totalGrossAmount = 0;
         const withdrawItems = Array.isArray(items) ? items : [];
+        
         if (withdrawItems.length === 0) {
             return res.status(400).json({ message: "Please select at least one wallet to withdraw." });
         }
 
         for (let item of withdrawItems) {
-            const amount = Number(item.amount);
-            const walletId = item.source; // e.g., 'directIncome', 'taskIncome'
+            // Frontend 'amount' bheje ya 'amt', dono handle karega
+            const val = item.amount || item.amt || 0;
+            const amount = Number(val);
+            const walletId = item.source; 
 
-            if (amount <= 0) continue; 
+            if (isNaN(amount) || amount <= 0) continue; 
 
-            // Logic: Agar source 'main_wallet' hai toh user.walletBalance check karo, 
-            // varna user.wallets[walletId] check karo
             let currentBalance = (walletId === 'main_wallet') 
                 ? user.walletBalance 
-                : user.wallets[walletId];
+                : (user.wallets ? user.wallets[walletId] : 0);
 
             if (currentBalance === undefined || currentBalance < amount) {
-                return res.status(400).json({ message: `Insufficient balance in ${walletId}` });
+                return res.status(400).json({ message: `Insufficient balance in ${walletId.replace('_', ' ')}` });
             }
 
-            totalWithdrawAmount += amount;
+            totalGrossAmount += amount;
         }
 
-        // 4. Minimum $5 Requirement
-        if (totalWithdrawAmount < 5) { 
+        // 4. Minimum Withdrawal Check
+        if (totalGrossAmount < 5) { 
             return res.status(400).json({ message: "Minimum total withdrawal is $5" });
         }
 
-        // 5. Execution: Paise Kaato
+        // 🔥 5. Fee Calculation (Exactly 10%)
+        const feePercentage = 10;
+        const feeAmount = (totalGrossAmount * feePercentage) / 100;
+        const netAmount = totalGrossAmount - feeAmount;
+
+        // 6. Deduct Balance from Wallets
         for (let item of withdrawItems) {
-            const amount = Number(item.amount);
+            const val = item.amount || item.amt || 0;
+            const amount = Number(val);
             const walletId = item.source;
 
             if (amount > 0) {
                 if (walletId === 'main_wallet') {
                     user.walletBalance -= amount;
-                } else {
+                } else if (user.wallets) {
                     user.wallets[walletId] -= amount;
                 }
             }
         }
         
-        user.wallets.totalWithdrawn = (user.wallets.totalWithdrawn || 0) + totalWithdrawAmount;
+        // Update user stats
+        if (user.wallets) {
+            user.wallets.totalWithdrawn = (user.wallets.totalWithdrawn || 0) + totalGrossAmount;
+        }
         await user.save({ validateBeforeSave: false });
 
-        // 6. 🟢 Withdrawal Table (Admin Entry)
+        // 🟢 7. SAVE TO WITHDRAWAL TABLE (Admin Dashboard ke liye)
+        const primarySource = withdrawItems.length > 1 
+            ? 'MULTI WALLET' 
+            : String(withdrawItems[0]?.source || 'UNKNOWN').replace('_', ' ').toUpperCase();
+
         await Withdrawal.create({
             userId: user.userId,
             name: user.name,
             userDisplayId: String(user.userId),
-            amount: totalWithdrawAmount,
+            gross: totalGrossAmount, 
+            fee: feeAmount,         
+            net: netAmount,         
+            amount: netAmount,      
+            source: primarySource,  
             walletAddress: walletAddress || user.walletAddress,
-            status: 'pending' // Lowercase 'pending' (Check your model enum)
+            status: 'pending' 
         });
 
-        // 7. 🟢 Transaction History (User History)
+        // 🟢 8. SAVE TO TRANSACTION TABLE (User History ke liye)
+        
+        // 🛠️ YAHAN FIX KIYA HAI: 'directIncome' ko 'direct_income' mein badalna
+        let walletTypeToSave = 'multi_wallet';
+        if (withdrawItems.length === 1) {
+            let sourceStr = withdrawItems[0].source || 'main_wallet';
+            // Regex to convert camelCase to snake_case
+            walletTypeToSave = sourceStr.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
+        }
+
         await Transaction.create({
             userId: user.userId,
-            amount: totalWithdrawAmount,
-            type: 'WITHDRAWAL',
+            amount: totalGrossAmount,     
+            grossAmount: totalGrossAmount,
+            type: 'WITHDRAWAL',           
             transactionType: 'debit',
-            walletType: 'multi_wallet', 
-            description: `Withdrawal request for $${totalWithdrawAmount.toFixed(2)}`,
+            walletType: walletTypeToSave, // 👈 Ab Mongoose error nahi dega
+            description: `Withdrawal request for $${totalGrossAmount.toFixed(2)} (Net: $${netAmount.toFixed(2)} after 10% Fee)`,
             status: 'pending' 
         });
 
         res.status(200).json({ 
-            message: "Withdrawal request submitted! Pending admin approval.",
+            message: `Withdrawal request for $${netAmount.toFixed(2)} submitted! ($${feeAmount.toFixed(2)} Fee deducted).`,
             user: user 
         });
 
     } catch (error) {
         console.error("Combined Withdraw Error:", error);
-        res.status(500).json({ message: "Server error during withdrawal." });
+        res.status(500).json({ message: "Server error during withdrawal.", error: error.message });
     }
 });
 
 // ==========================================
 // 2. 🟢 GET: Withdrawal History Dekhna
 // ==========================================
+// ==========================================
+// 🟢 FIXED ROUTE: User Withdrawal History
+// ==========================================
 router.get('/withdrawals/:userId', async (req, res) => {
     try {
-        const targetId = Number(req.params.userId);
+        const numericUserId = Number(req.params.userId);
 
-        // Naye logic me hum seedha Transaction table se data uthayenge jahan type 'WITHDRAWAL' hai
-        const history = await Transaction.find({ 
-            userId: targetId,
-            type: 'WITHDRAWAL'
-        }).sort({ createdAt: -1 });
-        
-        res.status(200).json(history || []); 
-    } catch (err) {
-        console.error("Withdrawal History Error:", err);
-        res.status(500).json({ message: "Failed to load withdrawal history" });
+        if (!numericUserId) {
+            return res.status(400).json({ message: "Invalid User ID" });
+        }
+
+        // 🔥 FIX: Direct 'Withdrawal' table se data uthao taaki admin se sync rahe
+        // Agar Admin ne approve kiya, toh user ko turant approved dikhega!
+        const withdrawals = await Withdrawal.find({ userId: numericUserId })
+            .sort({ createdAt: -1 })
+            .lean(); // .lean() fast response ke liye hota hai
+
+        res.status(200).json(withdrawals);
+
+    } catch (error) {
+        console.error("User Withdrawal Fetch Error:", error);
+        res.status(500).json({ message: "Failed to fetch history" });
     }
 });
 
 // 7. Withdrawals History Route
  
+
 // ==========================================
 // 🚀 ROUTES WITH INLINE LOGIC
 // ==========================================

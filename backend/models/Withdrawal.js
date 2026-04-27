@@ -1,15 +1,64 @@
 const mongoose = require('mongoose');
 
 const withdrawalSchema = new mongoose.Schema({
-    userId: { type: Number, required: true }, // NAYA FIX: Isey 'Number' rehne do, ObjectId mat karna
-    name: { type: String }, // Required hata diya ya backend se pass karenge
-    userDisplayId: { type: String }, // Iski ab khaas zarurat nahi hai, par schema me rakh lete hain
-    amount: { type: Number, required: true },
-    walletAddress: { type: String, required: true },
-    adminNote: { type: String, default: "" },
+    // 🟢 7-digit User ID
+    userId: { 
+        type: Number, 
+        required: true 
+    }, 
+    name: { 
+        type: String 
+    },
+    userDisplayId: { 
+        type: String 
+    },
+    
+    // 🟢 ADMIN TABLE FIELDS (Ye zaroori hain $0.00 fix karne ke liye)
+    gross: { 
+        type: Number, 
+        default: 0 
+    }, // Total amount before fee
+    fee: { 
+        type: Number, 
+        default: 0 
+    },   // 10% Deduction amount
+    net: { 
+        type: Number, 
+        default: 0 
+    },   // Final amount after fee
+    
+    amount: { 
+        type: Number, 
+        required: true 
+    }, // Isme hum hamesha Net Amount hi save karenge
+    
+    source: { 
+        type: String, 
+        default: "MAIN WALLET" 
+    }, // ROI, Direct, etc. dikhane ke liye
+    
+    walletAddress: { 
+        type: String, 
+        required: true 
+    },
+    
+    // 🟢 Blockchain Hash (Approval ke waqt save hoga)
+    txnHash: { 
+        type: String, 
+        default: "" 
+    },
+    
+    adminNote: { 
+        type: String, 
+        default: "" 
+    },
+    
     status: { 
         type: String, 
-        enum: ['pending', 'approved', 'rejected'], // Saare lowercase hone chahiye
+        // 🛡️ Note: Backend 'approved' (lower) bhej raha hai, 
+        // par UI 'APPROVED' (upper) check karta hai. 
+        // Humne donon ko handle karne ke liye enum expand kar diya hai.
+        enum: ['pending', 'approved', 'rejected', 'SUCCESS', 'APPROVED', 'REJECTED'],
         default: 'pending' 
     }
 }, { timestamps: true });

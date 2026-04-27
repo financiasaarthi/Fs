@@ -622,12 +622,13 @@ router.put("/transactions/reverse", verifyAdmin, reverseTransactions);
 // Backend Code (Node.js/Express)
 router.get('/users', verifyAdmin, async (req, res) => {
   try {
-    // .select() se sirf zaroori data aayega, jisse API ki speed 10x fast ho jayegi!
+    // 🔥 Naye fields add kiye hain: sponsorId, isActive, currentPackage, aur wallets
     const users = await User.find()
-      .select('userId name email mobile depositAddress walletBalance topUpAmount createdAt') 
-      .sort({ createdAt: -1 });
+      .select('userId name email mobile depositAddress walletBalance topUpAmount currentPackage isActive sponsorId wallets createdAt') 
+      .sort({ createdAt: -1 })
+      .lean(); // .lean() lagane se query aur bhi zyada fast ho jati hai!
 
-    // Ye seedha array return karega, jo aapke frontend ke res.data me set ho jayega
+    // Ye seedha array return karega
     res.json(users);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -1211,12 +1212,17 @@ router.get('/withdrawals', verifyAdmin, async (req, res) => {
           ? (w.walletAddress || '')
           : (w.walletAddress || userMap[userKey]?.walletAddress || '');
 
+      // 🔥 FIX: Naye aur purane dono variables ko handle karne ka smart logic
+      const actualGross = Number(w.gross ?? w.grossAmount ?? w.amount ?? 0);
+      const actualFee = Number(w.fee ?? 0);
+      const actualNet = Number(w.net ?? (actualGross - actualFee) ?? 0);
+
       // 🔹 WITH SCHEDULE
       if (Array.isArray(w.schedule) && w.schedule.length > 0) {
-        let remainingGross = Number(w.grossAmount || 0);
+        let remainingGross = actualGross;
 
         return w.schedule.map((day, index) => {
-          const gross = Math.min(Number(day.grossAmount || 0), remainingGross);
+          const gross = Math.min(Number(day.grossAmount || day.gross || 0), remainingGross);
           const fee = Number(day.fee || 0);
           const net = +(gross - fee).toFixed(2);
           remainingGross -= gross;
@@ -1241,10 +1247,10 @@ router.get('/withdrawals', verifyAdmin, async (req, res) => {
             withdrawalId: w._id,
             userId: w.userId,
             name: resolvedName,
-            walletAddress: finalWallet, // ✅ FIXED
-            source: w.source,
+            walletAddress: finalWallet,
+            source: w.source || 'MAIN WALLET',
             grossAmount: gross,
-            fee,
+            fee: fee,
             netAmount: net,
             status: day.status || 'pending',
             date: dateObj,
@@ -1262,11 +1268,14 @@ router.get('/withdrawals', verifyAdmin, async (req, res) => {
         withdrawalId: w._id,
         userId: w.userId,
         name: resolvedName,
-        walletAddress: parentWallet, // ✅ FIXED
-        source: w.source,
-        grossAmount: Number(w.grossAmount || 0),
-        fee: Number(w.fee || 0),
-        netAmount: +(Number(w.grossAmount || 0) - Number(w.fee || 0)).toFixed(2),
+        walletAddress: parentWallet, 
+        source: w.source || 'MAIN WALLET',
+        
+        // 🔥 FIX: Frontend ko data 'grossAmount' aur 'netAmount' ke naam se bhej rahe hain taaki apka purana UI na toote
+        grossAmount: actualGross, 
+        fee: actualFee,
+        netAmount: actualNet, 
+        
         status: w.status || 'pending',
         date: dateObj,
         txnHash: w.txnHash || '',
@@ -1275,7 +1284,9 @@ router.get('/withdrawals', verifyAdmin, async (req, res) => {
     });
 
     const result = showAll ? flattened : flattened.filter(r => r.isInRange);
-    result.sort((a, b) => b.grossAmount - a.grossAmount);
+    
+    // Sort logic
+    result.sort((a, b) => b.date - a.date);
 
     res.json({ success: true, withdrawals: result });
   } catch (err) {
@@ -1290,6 +1301,9 @@ router.get('/withdrawals', verifyAdmin, async (req, res) => {
 
 // APPROVE a withdrawal (single withdrawal record)
 // Sirf status update karne ke liye
+// ==========================================
+// ✅ 1. BLOCKCHAIN APPROVE ROUTE (FIXED)
+// ==========================================
 router.put('/withdrawals/approve/:id', verifyAdmin, async (req, res) => {
   try {
     const fullId = req.params.id;
@@ -1301,12 +1315,14 @@ router.put('/withdrawals/approve/:id', verifyAdmin, async (req, res) => {
 
     if (fullId.includes('-')) {
       const parts = fullId.split('-');
-      actualId = parts[0]; // Ye asli MongoDB ID hogi
-      dayIndex = parseInt(parts[1]); // Ye schedule ka index hoga
+      actualId = parts[0]; 
+      dayIndex = parseInt(parts[1]); 
     }
 
     const withdrawal = await Withdrawal.findById(actualId);
     if (!withdrawal) return res.status(404).json({ message: 'Withdrawal not found' });
+
+    let isFullyApproved = false; // 👈 Flag to check if we should update User History
 
     // 2. Agar schedule hai, toh sirf us din ko approve karo
     if (dayIndex !== null && withdrawal.schedule && withdrawal.schedule[dayIndex]) {
@@ -1317,14 +1333,35 @@ router.put('/withdrawals/approve/:id', verifyAdmin, async (req, res) => {
       if (allDone) {
         withdrawal.status = "approved";
         withdrawal.txnHash = txnHash;
+        isFullyApproved = true;
       }
     } else {
-      // 3. Normal withdrawal (binna schedule wala)
+      // 3. Normal withdrawal (bina schedule wala)
       withdrawal.status = "approved";
       withdrawal.txnHash = txnHash;
+      isFullyApproved = true;
     }
 
     await withdrawal.save();
+
+    // 🔥 4. SYNC USER TRANSACTION HISTORY 🔥
+    if (isFullyApproved) {
+      await Transaction.findOneAndUpdate(
+        {
+          userId: withdrawal.userId,
+          type: 'WITHDRAWAL',
+          status: 'pending' // Sirf pending wali entry uthayega
+        },
+        {
+          $set: {
+            status: 'completed', // Transaction schema enum ke hisaab se
+            txHash: txnHash      // Hash bhi user ko dikha denge
+          }
+        },
+        { sort: { createdAt: 1 } } // Oldest pending transaction ko pehle update karega
+      );
+    }
+
     res.json({ success: true, message: "Approved successfully", withdrawal });
 
   } catch (err) {
@@ -1334,9 +1371,9 @@ router.put('/withdrawals/approve/:id', verifyAdmin, async (req, res) => {
 });
 
 
-
-// APPROVE a dummy txn with txnHash
-// ✅ Dummy Transaction Route (Fixed for Schedule IDs)
+// ==========================================
+// ✅ 2. DUMMY TRANSACTION ROUTE (FIXED)
+// ==========================================
 router.put('/withdrawals/dummy/:id', verifyAdmin, async (req, res) => {
   try {
     const { txnHash } = req.body;
@@ -1346,7 +1383,6 @@ router.put('/withdrawals/dummy/:id', verifyAdmin, async (req, res) => {
     let actualId = fullId;
     let dayIndex = null;
 
-    // 1. Agar ID mein '-' hai, toh asli ID aur index nikaalo
     if (fullId.includes('-')) {
       const parts = fullId.split('-');
       actualId = parts[0];
@@ -1356,24 +1392,46 @@ router.put('/withdrawals/dummy/:id', verifyAdmin, async (req, res) => {
     const withdrawal = await Withdrawal.findById(actualId);
     if (!withdrawal) return res.status(404).json({ message: 'Withdrawal not found' });
 
+    let isFullyApproved = false; // 👈 Flag for User History
+
     // 2. Agar schedule hai, toh sirf us specific din ko approve karo
     if (dayIndex !== null && withdrawal.schedule && withdrawal.schedule[dayIndex]) {
       withdrawal.schedule[dayIndex].status = 'approved';
       withdrawal.schedule[dayIndex].walletAddress = withdrawal.schedule[dayIndex].walletAddress || withdrawal.walletAddress;
       
-      // Check agar saare days done hain
       const allDone = withdrawal.schedule.every(day => day.status === 'approved');
       if (allDone) {
         withdrawal.status = 'approved';
         withdrawal.txnHash = txnHash;
+        isFullyApproved = true;
       }
     } else {
       // 3. Normal withdrawal ke liye
       withdrawal.status = 'approved';
       withdrawal.txnHash = txnHash;
+      isFullyApproved = true;
     }
 
     await withdrawal.save();
+
+    // 🔥 4. SYNC USER TRANSACTION HISTORY 🔥
+    if (isFullyApproved) {
+      await Transaction.findOneAndUpdate(
+        {
+          userId: withdrawal.userId,
+          type: 'WITHDRAWAL',
+          status: 'pending'
+        },
+        {
+          $set: {
+            status: 'completed', // Transaction schema enum match
+            txHash: txnHash
+          }
+        },
+        { sort: { createdAt: 1 } }
+      );
+    }
+
     res.json({ success: true, message: 'Dummy transaction approved' });
   } catch (err) {
     console.error("Dummy Approve Error:", err);

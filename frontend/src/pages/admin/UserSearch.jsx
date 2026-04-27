@@ -88,42 +88,42 @@ function UserSearch() {
  // ================= IMPERSONATE USER =================
  // ================= IMPERSONATE USER =================
  // ================= IMPERSONATE USER =================
-  const handleImpersonate = async () => {
-    const token = getAdminToken();
-    if (!token) return setMessage("Admin not authenticated");
+ const handleImpersonate = async () => {
+  const token = getAdminToken();
+  if (!token) return setMessage("Admin not authenticated");
 
-    try {
-      const res = await api.post(`/admin/impersonate`, {
-        userId: user.userId,
-      });
+  try {
+    setMessage("Generating access...");
+    const res = await api.post(`/admin/impersonate`, {
+      userId: user.userId,
+    });
 
-      const { token: userToken, user: impersonatedUser } = res.data;
-      const userDataStr = JSON.stringify(impersonatedUser);
+    const { token: userToken, user: impersonatedUser } = res.data;
+    const userDataStr = JSON.stringify(impersonatedUser);
 
-      // 🔥 SMART DYNAMIC URL LOGIC 🔥
-      let targetBaseUrl = "";
-      const currentHost = window.location.hostname;
-
-      // Check: Agar aap Local PC par ho
-      if (currentHost === "localhost" || currentHost === "127.0.0.1") {
-        targetBaseUrl = "http://localhost:3000"; // Local Main Frontend ka port
-      } 
-      // Check: Agar aap Live Server (Subdomain) par ho
-      else {
-        targetBaseUrl = "https://financialsaarthi.live"; // Live Main Website
-      }
-
-      // Final URL banayen
-      const mainWebsiteUrl = `${targetBaseUrl}/login?token=${userToken}&user=${encodeURIComponent(userDataStr)}`;
-
-      // Naye tab mein kholen
-      window.open(mainWebsiteUrl, "_blank", "noopener,noreferrer");
-
-    } catch (err) {
-      console.error(err);
-      setMessage(err.response?.data?.message || "Failed to impersonate user");
+    // 🔥 DYNAMIC URL LOGIC
+    let targetBaseUrl = "";
+    if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+      // Agar aap local admin panel (manlo port 5174) par ho, 
+      // toh main frontend (port 3000) par bhejega
+      targetBaseUrl = "http://localhost:5173"; 
+    } else {
+      // Live server par main website ka URL
+      targetBaseUrl = "https://financialsaarthi.live"; 
     }
-  };
+
+    // URL ke end mein parameters bhejo
+    const mainWebsiteUrl = `${targetBaseUrl}/login?token=${userToken}&user=${encodeURIComponent(userDataStr)}`;
+
+    // Naye tab mein kholne ke liye
+    window.open(mainWebsiteUrl, "_blank", "noopener,noreferrer");
+    setMessage("✅ Redirection successful");
+
+  } catch (err) {
+    console.error(err);
+    setMessage(err.response?.data?.message || "Failed to impersonate");
+  }
+};
 
   // ================= RESET TELEGRAM (NEW) =================
   const handleResetTelegram = async () => {
