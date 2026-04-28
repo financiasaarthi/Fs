@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const videoSchema = new mongoose.Schema({
     title: { type: String, required: true },
     url: { type: String, required: true }, // YouTube link
+    shareMessage: { type: String, default: "" }, // 🆕 New field for Custom Share Message
     duration: { type: Number, default: 15 }, // Kitne second dekhna hai
     isActive: { type: Boolean, default: true }
 }, { timestamps: true });

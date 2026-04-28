@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { PlayCircle, CheckCircle, Timer, Package, ArrowRight, Play, Loader2, Share2 } from 'lucide-react';
+import { PlayCircle, CheckCircle, Timer, Package, ArrowRight, Loader2, Play } from 'lucide-react';
 // 🟢 Context Hook
 import { useAuth } from '../../context/AuthContext'; 
 // 🟢 Success Modal Import
@@ -12,7 +12,8 @@ function TaskCenter() {
   const [activePlayingPackage, setActivePlayingPackage] = useState(null);
   const [isVideoFinished, setIsVideoFinished] = useState(false);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false); 
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // Timer control
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false); // 🆕 New state for manual play
   const [isClaiming, setIsClaiming] = useState(false);
 
   const [currentVideo, setCurrentVideo] = useState(null);
@@ -42,7 +43,6 @@ function TaskCenter() {
       const totalDBWatched = user?.dailyVideosWatched || 0;
       let storedProgress = JSON.parse(localStorage.getItem(`pkgProgress_${user.userId}`)) || {};
       
-      // Agar agle din DB reset hokar 0 ho gaya, toh local storage bhi clear kar do
       if (totalDBWatched === 0) {
         storedProgress = {};
         activePackages.forEach(pkg => storedProgress[pkg] = 0);
@@ -71,6 +71,7 @@ function TaskCenter() {
   // ⏱️ TIMER LOGIC
   useEffect(() => {
     let timer;
+    // Timer tabhi chalega jab isVideoPlaying true hoga
     if (isVideoPlaying && timeLeft > 0) {
       timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     }
@@ -81,19 +82,24 @@ function TaskCenter() {
     return () => clearInterval(timer);
   }, [isVideoPlaying, timeLeft]);
 
+  // 🟢 Step 1: Open task but DO NOT start timer yet
   const handleOpenTask = (pkgPrice) => {
     if (!currentVideo) return;
     setActivePlayingPackage(pkgPrice);
-    setIsVideoPlaying(false); 
+    
+    setIsVideoPlaying(false); // Timer paused
+    setHasStartedPlaying(false); // Show play overlay
     setIsVideoFinished(false);
-    setTimeLeft(15);
+    setTimeLeft(currentVideo.duration || 15);
   };
 
-  const startVideoAndTimer = () => {
-    setIsVideoPlaying(true); 
+  // 🟢 Step 2: User clicks actual video play overlay
+  const startActualVideo = () => {
+    setHasStartedPlaying(true); // Hide overlay, show video
+    setIsVideoPlaying(true); // START TIMER NOW
   };
 
-  // 💰 CLAIM REWARD (Syncing with Context + Premium Modal)
+  // 💰 CLAIM REWARD 
   const handleClaimReward = async () => {
     if (!user?.userId) return;
     setIsClaiming(true); 
@@ -104,12 +110,10 @@ function TaskCenter() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
-      // ✅ Context ko update karo (Instant Balance & Progress sync)
       if (res.data.user) {
         updateUser(res.data.user);
       }
 
-      // Update Local Storage
       setLocalProgress(prev => {
         const newProgress = { ...prev };
         newProgress[activePlayingPackage] = (newProgress[activePlayingPackage] || 0) + 1;
@@ -117,15 +121,15 @@ function TaskCenter() {
         return newProgress;
       });
       
-      // 🟢 SET POPUP DATA AND OPEN MODAL (Instead of alert)
       setRewardData({
-        amount: 0.10, // Assuming fixed reward per video based on your old code
+        amount: 0.10,
         packageName: packagesConfig[activePlayingPackage]?.name,
         date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
       });
       setIsSuccessOpen(true);
 
       setIsVideoFinished(false);
+      setHasStartedPlaying(false);
       setActivePlayingPackage(null); 
       fetchRandomVideo(); 
       
@@ -136,7 +140,7 @@ function TaskCenter() {
     }
   };
 
-  // YouTube logic
+  // 🎬 YouTube logic
   const isYouTube = currentVideo?.url?.includes("youtube.com") || currentVideo?.url?.includes("youtu.be");
   const getYouTubeEmbed = (url) => {
     if (!url) return "";
@@ -147,64 +151,103 @@ function TaskCenter() {
     }
     return url;
   };
-  const finalUrl = isYouTube ? `${getYouTubeEmbed(currentVideo?.url)}?autoplay=1&mute=0` : currentVideo?.url;
   
-  // URL to Share
+  // 🔥 Only add autoplay when user manually clicks our overlay (better browser support)
+  const finalUrl = isYouTube ? `${getYouTubeEmbed(currentVideo?.url)}?autoplay=1&playsinline=1` : currentVideo?.url;
+  
+  // 🔗 SHARE LOGIC
   const shareUrl = currentVideo?.url || window.location.origin;
-  const shareMessage = encodeURIComponent("Check out this amazing video I found while completing my tasks!");
+  const rawShareMessage = currentVideo?.shareMessage || "Check out this amazing video I found while completing my tasks!";
+  const encodedMessage = encodeURIComponent(rawShareMessage);
+  const encodedUrl = encodeURIComponent(shareUrl);
+
+  const handleInstagramShare = () => {
+    const textToShare = `${rawShareMessage}\n\n${shareUrl}`;
+    navigator.clipboard.writeText(textToShare);
+    alert("✅ Message & Link Copied!\nOpen Instagram and paste it to share with your friends.");
+  };
 
   const renderVideoArea = () => (
     <div className="mt-6 animate-in fade-in duration-500">
       
       {/* 🎬 Video Player */}
       <div className="relative w-full aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border-[4px] border-gray-900 flex items-center justify-center group">
-        {!isVideoPlaying && !isVideoFinished ? (
-          <div onClick={startVideoAndTimer} className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-900/80 cursor-pointer hover:bg-gray-900/60 transition-all backdrop-blur-sm">
+        
+        {/* 🛑 MANUAL PLAY OVERLAY (Timer will NOT start until this is clicked) */}
+        {!hasStartedPlaying && !isVideoFinished && (
+          <div 
+            onClick={startActualVideo} 
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-900/80 cursor-pointer hover:bg-gray-900/70 transition-all backdrop-blur-sm"
+          >
             <div className="bg-red-600 text-white rounded-[2rem] py-4 px-8 shadow-xl group-hover:scale-110 transition-transform flex items-center justify-center border-4 border-red-500/30">
               <Play fill="currentColor" size={48} />
             </div>
-            <p className="text-white mt-6 font-black tracking-widest uppercase text-xs animate-pulse">Click to Start Ad Timer</p>
+            <p className="text-white mt-6 font-black tracking-widest uppercase text-xs animate-pulse">
+              Click Here To Play Video & Start Timer
+            </p>
           </div>
-        ) : (
+        )}
+
+        {/* 🎥 IFRAME (Only loads AFTER user clicks overlay) */}
+        {hasStartedPlaying && (
           isYouTube ? (
             <iframe src={finalUrl} className="w-full h-full" allow="autoplay; encrypted-media" allowFullScreen />
           ) : (
-            <video src={finalUrl} controls autoPlay className="w-full h-full object-contain" />
+            <video src={finalUrl} controls autoPlay playsInline className="w-full h-full object-contain" />
           )
         )}
-        {isVideoPlaying && (
+
+        {/* ⏱️ TIMER DISPLAY */}
+        {isVideoPlaying && hasStartedPlaying && (
           <div className="absolute top-4 right-4 bg-red-600 text-white px-5 py-2.5 rounded-xl flex items-center shadow-lg font-black tracking-[0.2em] z-20 animate-pulse border-2 border-red-500/50">
             <Timer className="mr-2" size={18} /> 00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
           </div>
         )}
       </div>
 
-      {/* 📱 Social Share Buttons (Always visible while video is open) */}
-      <div className="flex flex-wrap items-center justify-center gap-3 mt-4">
-        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full text-center mb-1">Share This Video</p>
+      {/* 📱 Social Share Buttons */}
+      <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
+        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full text-center mb-1">Share To Earn More Referrals</p>
         
         {/* WhatsApp Share */}
         <a 
-          href={`https://api.whatsapp.com/send?text=${shareMessage} ${encodeURIComponent(shareUrl)}`} 
+          href={`https://api.whatsapp.com/send?text=${encodedMessage}%20${encodedUrl}`} 
           target="_blank" rel="noreferrer"
-          className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+          className="flex items-center gap-2 bg-[#25D366] hover:bg-[#128C7E] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
         >
-          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.88-.653-1.473-1.46-1.646-1.757-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.305-.88-.653-1.473-1.46-1.646-1.757-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413Z"/></svg>
           WhatsApp
         </a>
         
         {/* Facebook Share */}
-     {/* Facebook Share */}
-<a 
-  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`} 
-  target="_blank" rel="noreferrer"
-  className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#0e5fc9] text-white px-6 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
->
-  <svg className="w-4 h-4 fill-current text-white" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-  </svg>
-  Facebook
-</a>
+        <a 
+          href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} 
+          target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 bg-[#1877F2] hover:bg-[#0e5fc9] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+        >
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+          Facebook
+        </a>
+
+        {/* Telegram Share */}
+        <a 
+          href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedMessage}`} 
+          target="_blank" rel="noreferrer"
+          className="flex items-center gap-2 bg-[#229ED9] hover:bg-[#1b84b5] text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+        >
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 24c6.627 0 12-5.373 12-12S18.627 0 12 0 0 5.373 0 12s5.373 12 12 12zM5.277 11.666c3.843-1.674 6.405-2.78 7.686-3.318 3.65-1.536 4.41-1.8 4.904-1.808.109-.002.35.025.5.15.126.104.164.246.182.344.017.098.037.315.02.483-.19 1.89-1.01 6.425-1.433 8.52-.18.89-.5.856-.99.856-.492 0-.612-.22-.962-.44-1.028-.646-1.587-1.03-2.573-1.68-.684-.45-1.285-.826-1.353-.895-.443-.45.02-.922.383-1.293.096-.098 1.767-1.62 1.8-1.758.004-.017.008-.08-.03-.11-.038-.032-.09-.02-.128-.01-.055.012-1.93 1.252-4.108 2.723-.5.337-.893.428-1.185.418-.328-.01-1.11-.23-1.66-.41-.678-.22-1.14-.337-1.096-.713.023-.194.3-.396.824-.607z"/></svg>
+          Telegram
+        </a>
+
+        {/* Instagram Share (Copies to clipboard) */}
+        <button 
+          onClick={handleInstagramShare}
+          className="flex items-center gap-2 bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] hover:opacity-90 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
+        >
+          <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+          Instagram
+        </button>
+
       </div>
 
       {/* 💰 Claim Button Section */}
@@ -313,13 +356,13 @@ function TaskCenter() {
         })}
       </div>
 
-      {/* 🟢 PREMIUM REWARD MODAL (Type: reward) */}
+      {/* 🟢 PREMIUM REWARD MODAL */}
       <SuccessModal
         isOpen={isSuccessOpen}
         title="Reward Unlocked!"
         message="Great job! Your ad task is complete."
         btnText="CONTINUE EARNING"
-        type="reward" // 👈 Special 'Amber/Gold' Theme
+        type="reward" 
         onConfirm={() => setIsSuccessOpen(false)}
       >
         {rewardData && (

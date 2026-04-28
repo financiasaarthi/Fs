@@ -1,77 +1,66 @@
 import React from 'react';
 import { Menu, LogOut, User } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-// 🟢 FIX 1: useAuth import kiya
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext'; 
 
 const Navbar = ({ toggleSidebar }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  
-  // 🟢 FIX 2: Context se data aur logout function nikala
-  const { user, logout } = useAuth();
-
-  const isAdmin = location.pathname.startsWith('/admin');
+  const { user, logout } = useAuth(); 
 
   const handleLogout = () => {
-    // 🟢 FIX 3: Central logout function call kiya
-    // Ye user data aur token dono saaf kar dega
-    logout();
-
-    if (isAdmin) {
-      // Admin specific token delete karo agar hai toh
-      localStorage.removeItem('adminToken');
-      navigate('/admin/login');
-    } else {
-      navigate('/login');
-    }
+    logout(); 
+    navigate('/login'); 
   };
 
   return (
     <header className="h-[65px] bg-white border-b border-gray-200 flex items-center justify-between px-4 lg:px-8 z-20 sticky top-0 shadow-sm">
       
       {/* LEFT SIDE: Logo & Toggle */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3 sm:gap-4">
+        {/* Mobile Sidebar Toggle */}
         <button onClick={toggleSidebar} className="text-gray-600 lg:hidden hover:text-blue-600 transition-colors">
           <Menu size={24} />
         </button>
         
-        <span className="text-2xl font-black text-gray-800 tracking-tight">
-          Fin<span className="text-blue-600">Saarthi</span>
-          {isAdmin && (
-            <span className="ml-2 text-[10px] bg-red-100 text-red-600 px-2 py-1 rounded-md font-black uppercase tracking-widest border border-red-200">
-              Admin
-            </span>
-          )}
-        </span>
+        {/* Logo */}
+        <Link to="/dashboard" className="text-xl sm:text-2xl font-black text-gray-800 tracking-tight">
+          Financial <span className="text-blue-600">Saarthi</span>
+        </Link>
       </div>
 
       {/* RIGHT SIDE: Profile & Logout */}
-      <div className="flex items-center space-x-5">
+      <div className="flex items-center space-x-3 sm:space-x-5">
         
-        {/* 🟢 FIX 4: User Info ab seedha context wale 'user' se aayegi */}
-        {user && !isAdmin && (
-          <>
-            <div className="hidden sm:block text-right">
+        {user && (
+          <div className="flex items-center gap-3">
+            {/* User Info (PC me dikhega) - Dashboard par bhejega */}
+            <Link to="/" className="hidden sm:block text-right hover:opacity-80 transition-opacity">
               <p className="text-sm font-bold text-gray-900">{user.name || 'User'}</p>
               <p className="text-xs text-gray-500 font-medium tracking-tighter uppercase">ID: {user.userId}</p>
-            </div>
+            </Link>
             
-            <div className="h-10 w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100 shadow-sm">
-              <User size={20} />
-            </div>
+            {/* Clickable Profile Icon - Dashboard par bhejega */}
+            <Link 
+              to="/profile" 
+              className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold border border-blue-100 shadow-sm hover:bg-blue-100 transition-colors"
+              title="Go to Dashboard"
+            >
+              <User size={18} className="sm:w-5 sm:h-5" />
+            </Link>
             
+            {/* Divider Line (Sirf PC me) */}
             <div className="w-px h-8 bg-gray-200 hidden sm:block"></div>
-          </>
+          </div>
         )}
         
         {/* Logout Button */}
         <button 
           onClick={handleLogout}
-          className="flex items-center text-sm font-bold text-gray-500 hover:text-red-600 transition group"
+          className="flex items-center text-sm font-bold text-gray-500 hover:text-red-600 transition group ml-2"
+          title="Sign Out"
         >
-          <LogOut size={18} className="mr-1.5 group-hover:translate-x-0.5 transition-transform" /> 
-          <span className="font-black uppercase tracking-tight text-[12px]">Sign Out</span>
+          <LogOut size={20} className="sm:mr-1.5 group-hover:translate-x-0.5 transition-transform" /> 
+          <span className="hidden sm:inline font-black uppercase tracking-tight text-[12px]">Sign Out</span>
         </button>
       </div>
     </header>

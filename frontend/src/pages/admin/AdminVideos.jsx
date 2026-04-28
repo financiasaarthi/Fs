@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import api from '../../api/axios';
-import { Video, PlusCircle, Trash2, Link as LinkIcon, PlayCircle } from 'lucide-react';
+import { Video, PlusCircle, Trash2, Link as LinkIcon, PlayCircle, MessageSquare } from 'lucide-react';
 
 const AdminVideos = () => {
   const [videos, setVideos] = useState([]);
   const [title, setTitle] = useState('');
   const [url, setUrl] = useState('');
+  const [shareMessage, setShareMessage] = useState(''); // 🆕 New state for Share Message
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
 
@@ -27,11 +28,13 @@ const AdminVideos = () => {
     setLoading(true);
     setMessage('');
     try {
-      await api.post('/videos/admin/add', { title, url });
+      // 🆕 Payload में shareMessage भी भेज रहे हैं
+      await api.post('/videos/admin/add', { title, url, shareMessage });
       setMessage('✅ Video added successfully!');
       setTitle('');
       setUrl('');
-      fetchVideos(); // List refresh karein
+      setShareMessage(''); // Clear textarea
+      fetchVideos(); // List refresh
     } catch (error) {
       setMessage('❌ Failed to add video.');
     } finally {
@@ -43,7 +46,7 @@ const AdminVideos = () => {
     if (!window.confirm("Are you sure you want to delete this video?")) return;
     try {
       await api.delete(`/videos/admin/videos/${id}`);
-      fetchVideos(); // List refresh karein
+      fetchVideos(); // List refresh
     } catch (error) {
       alert("Error deleting video");
     }
@@ -55,7 +58,7 @@ const AdminVideos = () => {
         <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
           <Video className="text-blue-600" /> Video Management
         </h1>
-        <p className="text-sm text-gray-500">Add YouTube links for user daily tasks</p>
+        <p className="text-sm text-gray-500">Add YouTube links and Share Messages for user daily tasks</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -75,6 +78,7 @@ const AdminVideos = () => {
                 className="w-full p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none"
               />
             </div>
+            
             <div>
               <label className="block text-xs font-bold text-gray-600 mb-1">YouTube URL</label>
               <div className="relative">
@@ -86,6 +90,22 @@ const AdminVideos = () => {
                 />
               </div>
             </div>
+
+            {/* 🆕 Share Message Textarea */}
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Custom Share Message (Optional)</label>
+              <div className="relative">
+                <MessageSquare size={16} className="absolute left-3 top-3.5 text-gray-400" />
+                <textarea 
+                  value={shareMessage} onChange={(e) => setShareMessage(e.target.value)}
+                  placeholder="💡 Health Insurance Awareness&#10;&#10;👉 आज के time में..."
+                  rows="5"
+                  className="w-full pl-9 p-3 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 outline-none resize-y"
+                ></textarea>
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Users will share this exact message on WhatsApp.</p>
+            </div>
+
             <button 
               type="submit" disabled={loading}
               className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg transition-all disabled:bg-gray-400"
@@ -107,18 +127,23 @@ const AdminVideos = () => {
                 <tr className="bg-gray-50 text-gray-600 text-sm border-b">
                   <th className="p-3 font-bold">Title</th>
                   <th className="p-3 font-bold">URL</th>
+                  <th className="p-3 font-bold">Share Message</th>
                   <th className="p-3 font-bold text-center">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {videos.length === 0 ? (
-                  <tr><td colSpan="3" className="text-center p-4 text-gray-500">No videos added yet.</td></tr>
+                  <tr><td colSpan="4" className="text-center p-4 text-gray-500">No videos added yet.</td></tr>
                 ) : (
                   videos.map((vid) => (
                     <tr key={vid._id} className="border-b hover:bg-gray-50">
                       <td className="p-3 font-medium text-gray-800">{vid.title}</td>
-                      <td className="p-3 text-sm text-blue-500 truncate max-w-[200px]">
+                      <td className="p-3 text-sm text-blue-500 truncate max-w-[150px]">
                         <a href={vid.url} target="_blank" rel="noreferrer">{vid.url}</a>
+                      </td>
+                      {/* 🆕 Show a snippet of the message */}
+                      <td className="p-3 text-sm text-gray-500 truncate max-w-[200px]">
+                        {vid.shareMessage ? vid.shareMessage : <span className="italic text-gray-400">No message</span>}
                       </td>
                       <td className="p-3 text-center">
                         <button 
