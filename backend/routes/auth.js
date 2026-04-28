@@ -233,6 +233,7 @@ router.post('/forgot-password', checkFeature(), async (req, res) => {
 });
 
 // ====================== RESET PASSWORD ======================
+// ====================== RESET PASSWORD ======================
 router.post('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
   const { newPassword } = req.body;
@@ -245,15 +246,14 @@ router.post('/reset-password/:token', async (req, res) => {
 
     if (!user) return res.status(400).json({ message: 'Invalid or expired token.' });
 
-    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
-    user.password = hashedNewPassword;
+    // 🟢 FIX: Ab password bina hash kiye directly save hoga (Plain Text)
+    user.password = newPassword;
     user.transactionPassword = newPassword; 
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
 
     await user.save();
 
-    // 🔴 EMAIL SENDING BYPASSED HERE
     console.log(`✅ Password successfully reset for user ${user.userId}`);
 
     res.json({
