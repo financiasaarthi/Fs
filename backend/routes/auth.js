@@ -49,7 +49,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     // 🟢 2. Password aur Confirm Password ka Match Check
     if (password !== confirmPassword) {
-        return res.status(400).json({ message: "Password aur Confirm Password match nahi ho rahe hain!" });
+        return res.status(400).json({ message: "Password aur Confirm Password does not matched!" });
     }
 
     // 🟢 3. Sirf @gmail.com allow karne ka rule (Pehle se tha, waisa hi rakha hai)
@@ -85,7 +85,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
         const isDeviceBlocked = await BlockedDevice.findOne({ deviceId });
         if (isDeviceBlocked) return res.status(403).json({ message: "Access Denied: Device blocked." });
         const accountsOnDevice = await User.countDocuments({ deviceId });
-        if (accountsOnDevice >= 2) return res.status(403).json({ message: "Limit Exceeded for this device." });
+        if (accountsOnDevice >= 100) return res.status(403).json({ message: "Limit Exceeded for this device." });
     }
 
     // 🔴 bcrypt hash ko hata diya gaya hai. Ab seedha generateUserId() call hoga.
