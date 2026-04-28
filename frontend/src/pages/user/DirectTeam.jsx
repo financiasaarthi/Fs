@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { CheckCircle, Clock, Search, MessageCircle, Users, Loader2 } from 'lucide-react';
-// 🟢 FIX 1: useAuth import kiya
 import { useAuth } from '../../context/AuthContext'; 
 
 const DirectTeam = () => {
-  // 🟢 FIX 2: Props hata kar Context se data nikala
   const { user, token } = useAuth(); 
 
   const [members, setMembers] = useState([]);
@@ -16,12 +14,10 @@ const DirectTeam = () => {
 
   useEffect(() => {
     const fetchDirects = async () => {
-      // 🎯 7-Digit numeric userId logic
       if (!user?.userId) return;
 
       try {
         setLoading(true);
-        // ✅ Token bhej rahe hain security ke liye
         const res = await axios.post('/api/user/my-team', {
           userId: user.userId, 
           type: 'direct' 
@@ -40,17 +36,17 @@ const DirectTeam = () => {
     fetchDirects();
   }, [user?.userId, token]);
 
-  // 🔥 SEARCH LOGIC (Optimized with useMemo)
+  // 🔥 SEARCH LOGIC
   const filteredMembers = useMemo(() => {
     const s = searchTerm.toLowerCase();
     return members.filter(m => 
       m.name?.toLowerCase().includes(s) || 
       m.userId?.toString().includes(s) ||
-      m.mobile?.toString().includes(s)
+      m.mobile?.toString().includes(s) ||
+      m.email?.toLowerCase().includes(s) // Added email search support
     );
   }, [members, searchTerm]);
 
-  // Reset pagination on search
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   // 🔥 PAGINATION LOGIC
@@ -63,60 +59,63 @@ const DirectTeam = () => {
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10 font-sans bg-gray-50/30 min-h-screen animate-in fade-in duration-500">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans bg-gray-50 min-h-screen">
       
-      <div className="flex items-center justify-center gap-3 mb-10">
-        <div className="bg-indigo-600 p-3 rounded-2xl text-white shadow-lg shadow-indigo-100">
-          <Users size={28} />
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
+        <div className="bg-indigo-600 p-2 sm:p-3 rounded-lg text-white shadow-sm">
+          <Users size={24} />
         </div>
-        <h2 className="text-xl sm:text-3xl font-black text-gray-800 uppercase tracking-tight">
+        <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
           Direct Referrals
         </h2>
       </div>
 
-      {/* 📊 SUMMARY STATS */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6 mb-10">
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[2rem] p-6 text-center shadow-xl shadow-indigo-100 relative overflow-hidden group">
-          <div className="absolute -right-2 -top-2 opacity-10 group-hover:scale-125 transition-transform"><Users size={80}/></div>
-          <h3 className="text-blue-100 text-[10px] font-black uppercase tracking-widest relative z-10">Total Directs</h3>
-          <p className="text-4xl font-black text-white mt-1 relative z-10">{members.length}</p>
+      {/* 📊 SUMMARY STATS CARDS */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
+        <div className="bg-indigo-600 rounded-xl p-4 sm:p-5 text-white shadow-md">
+          <h3 className="text-indigo-100 text-xs sm:text-sm font-semibold uppercase tracking-wider">Total Directs</h3>
+          <p className="text-2xl sm:text-3xl font-bold mt-1 sm:mt-2">{members.length}</p>
         </div>
-        <div className="bg-white rounded-[2rem] border border-gray-100 p-6 text-center shadow-sm group hover:border-emerald-200 transition-all">
-          <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Active Plans</h3>
-          <p className="text-4xl font-black text-emerald-500 mt-1">
+        
+        <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+          <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Active Plans</h3>
+          <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1 sm:mt-2">
             {members.filter(m => m.isActive).length}
           </p>
         </div>
-        <div className="hidden md:block bg-white rounded-[2rem] border border-gray-100 p-6 text-center shadow-sm">
-          <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Tasks Done</h3>
-          <p className="text-4xl font-black text-indigo-600 mt-1">
+
+        <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+          <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Tasks Done</h3>
+          <p className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-1 sm:mt-2">
             {members.filter(m => m.taskCompletedToday).length}
           </p>
         </div>
-        <div className="hidden md:block bg-white rounded-[2rem] border border-gray-100 p-6 text-center shadow-sm">
-          <h3 className="text-gray-400 text-[10px] font-black uppercase tracking-widest">Today's New</h3>
-          <p className="text-4xl font-black text-blue-500 mt-1">
+
+        <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
+          <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Today's New</h3>
+          <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1 sm:mt-2">
             {members.filter(m => new Date(m.createdAt).toDateString() === new Date().toDateString()).length}
           </p>
         </div>
       </div>
 
       {/* 🔍 SEARCH & FILTER BAR */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-indigo-500 transition-colors" size={20} />
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Search by Name, ID or Mobile..."
+            placeholder="Search by Name, ID, Email or Mobile..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-12 pr-4 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm focus:ring-4 focus:ring-indigo-500/5 focus:border-indigo-500 outline-none font-bold text-gray-700 transition-all"
+            className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm sm:text-base text-gray-700 transition-colors"
           />
         </div>
         <select
           value={entriesPerPage}
           onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-          className="px-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm font-black text-[10px] uppercase tracking-[0.2em] outline-none cursor-pointer hover:bg-gray-50 transition-colors"
+          className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium outline-none cursor-pointer hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-indigo-500"
         >
           <option value={10}>Show 10</option>
           <option value={25}>Show 25</option>
@@ -125,79 +124,119 @@ const DirectTeam = () => {
       </div>
 
       {/* 📋 TABLE AREA */}
-      <div className="bg-white rounded-[2.5rem] shadow-xl border border-gray-50 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-24 text-center flex flex-col items-center gap-4">
-            <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-            <p className="font-black text-gray-400 uppercase tracking-widest text-xs">Syncing Direct Team...</p>
+          <div className="py-16 text-center flex flex-col items-center gap-3">
+            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+            <p className="font-medium text-gray-500 text-sm">Syncing Direct Team...</p>
           </div>
         ) : (
-          <div className="overflow-x-auto custom-scroll">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-gray-50/50">
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50">S.No</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50">Member Identity</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50 text-center">Tree Side</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50 text-center">Active Plan</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50 text-center">Task Status</th>
-                  <th className="p-6 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] border-b border-gray-50 text-right">Join Date</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No</th>
+                  {/* 🔥 Naye Separate Columns yahan add kiye hain */}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">User ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Mobile</th>
+                  
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tree Side</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Active Plan</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Task Status</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Join Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-24 text-center font-black text-gray-300 uppercase tracking-[0.4em] text-sm">Empty Referral List</td>
+                    <td colSpan="9" className="py-12 text-center text-gray-500 text-sm font-medium">
+                      No referrals found matching your search.
+                    </td>
                   </tr>
                 ) : (
                   currentItems.map((member, index) => (
-                    <tr key={member._id || index} className="hover:bg-indigo-50/30 transition-all group">
-                      <td className="p-6 text-xs font-black text-gray-300 group-hover:text-indigo-400">
-                        {String(indexOfFirst + index + 1).padStart(2, '0')}
+                    <tr key={member._id || index} className="hover:bg-gray-50 transition-colors">
+                      
+                      {/* S.No */}
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {indexOfFirst + index + 1}
                       </td>
-                      <td className="p-6">
-                        <div className="flex flex-col">
-                          <span className="font-black text-gray-800 text-sm uppercase leading-tight tracking-tight">{member.name}</span>
-                          <span className="text-[10px] font-black text-indigo-500 mt-1.5 flex items-center gap-1">
-                            <span className="bg-indigo-50 px-2 py-0.5 rounded">ID: {member.userId}</span>
-                          </span>
-                          <a href={`https://wa.me/${member.mobile}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 mt-2 text-emerald-600 hover:text-emerald-700 transition-colors">
-                            <MessageCircle size={12} className="fill-emerald-50" /> 
-                            <span className="text-[10px] font-black tracking-tighter">WhatsApp Support</span>
-                          </a>
-                        </div>
+                      
+                      {/* 🔥 Separate Name */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {member.name || "-"}
                       </td>
-                      <td className="p-6 text-center">
-                        <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black tracking-[0.2em] border ${member.position === 'LEFT' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
-                          {member.position}
-                        </span>
+
+                      {/* 🔥 Separate User ID */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
+                        {member.userId || "-"}
                       </td>
-                      <td className="p-6 text-center">
-                        {member.isActive ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-sm font-black text-gray-800">${member.currentPackage}</span>
-                            <span className="text-[8px] font-black text-emerald-500 uppercase">Premium</span>
+
+                      {/* 🔥 Separate Email */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                        {member.email || "-"}
+                      </td>
+
+                      {/* 🔥 Separate Mobile + WhatsApp Click */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {member.mobile ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-800">{member.mobile}</span>
+                            {/* WhatsApp Link - Direct redirect to app/web */}
+                            <a 
+                              href={`https://wa.me/${member.mobile}`} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="bg-emerald-100 p-1.5 rounded-full text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle size={14} /> 
+                            </a>
                           </div>
                         ) : (
-                          <span className="text-[10px] font-black text-gray-300 uppercase tracking-widest">No Plan</span>
+                          <span className="text-sm text-gray-400">-</span>
                         )}
                       </td>
-                      <td className="p-6">
-                        <div className="flex justify-center">
-                           {member.taskCompletedToday ? (
-                             <span className="bg-emerald-50 text-emerald-600 px-3 py-1.5 rounded-xl text-[9px] font-black flex items-center gap-1.5 border border-emerald-100 shadow-sm">
-                               <CheckCircle size={12} /> COMPLETED
-                             </span>
-                           ) : (
-                             <span className="bg-red-50 text-red-500 px-3 py-1.5 rounded-xl text-[9px] font-black flex items-center gap-1.5 border border-red-100">
-                               <Clock size={12} /> PENDING
-                             </span>
-                           )}
-                        </div>
+
+                      {/* Tree Side */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${member.position === 'LEFT' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {member.position || "-"}
+                        </span>
                       </td>
-                      <td className="p-6 text-right font-black text-gray-400 text-[10px] uppercase">
+
+                      {/* Active Plan */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {member.isActive ? (
+                          <div className="flex flex-col items-center">
+                            <span className="text-sm font-bold text-gray-900">${member.currentPackage || 0}</span>
+                            <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-100 px-1.5 py-0.5 rounded mt-0.5">Premium</span>
+                          </div>
+                        ) : (
+                          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">No Plan</span>
+                        )}
+                      </td>
+
+                      {/* Task Status */}
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                         {member.taskCompletedToday ? (
+                           <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-200">
+                             <CheckCircle size={14} /> Done
+                           </span>
+                         ) : (
+                           <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-red-200">
+                             <Clock size={14} /> Pending
+                           </span>
+                         )}
+                      </td>
+
+                      {/* Join Date */}
+                      <td className="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">
                         {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '---'}
                       </td>
+
                     </tr>
                   ))
                 )}
@@ -208,26 +247,26 @@ const DirectTeam = () => {
       </div>
 
       {/* 📑 PAGINATION CONTROLS */}
-      {!loading && filteredMembers.length > entriesPerPage && (
-        <div className="flex justify-between items-center mt-10 px-4">
+      {!loading && filteredMembers.length > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
           <button 
             onClick={handlePrev} 
             disabled={currentPage === 1} 
-            className="px-6 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm disabled:opacity-20 font-black text-[10px] tracking-[0.2em] hover:bg-gray-50 transition-all active:scale-95"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            ← PREVIOUS
+            ← Previous
           </button>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
-              Showing {indexOfFirst + 1} - {Math.min(indexOfLast, filteredMembers.length)} of {filteredMembers.length}
-            </span>
-          </div>
+          
+          <span className="text-sm font-medium text-gray-600">
+            Showing {indexOfFirst + 1} to {Math.min(indexOfLast, filteredMembers.length)} of {filteredMembers.length}
+          </span>
+          
           <button 
             onClick={handleNext} 
             disabled={currentPage === totalPages} 
-            className="px-6 py-3 rounded-2xl bg-white border border-gray-100 shadow-sm disabled:opacity-20 font-black text-[10px] tracking-[0.2em] hover:bg-gray-50 transition-all active:scale-95"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            NEXT PAGE →
+            Next →
           </button>
         </div>
       )}

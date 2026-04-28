@@ -12,7 +12,8 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     totalUsers: 0, todayUsers: 0, paidUsers: 0,
     totalDeposit: 0, todayDeposit: 0, pendingDepositToday: 0,
-    totalWithdrawal: 0, approvedWithdrawalTotal: 0, approvedWithdrawalToday: 0,
+    totalWithdrawal: 0,todayWithdrawal: 0,  
+     approvedWithdrawalTotal: 0, approvedWithdrawalToday: 0,
     pendingWithdrawalTotal: 0, pendingWithdrawalToday: 0,
   });
 
@@ -24,14 +25,25 @@ const AdminDashboard = () => {
     fetchWithdrawals();
   }, []);
 
-  const fetchDashboardData = async () => {
+ const fetchDashboardData = async () => {
     try {
       const statsRes = await api.get('/admin/dashboard', { headers: { Authorization: `Bearer ${token}` } });
       setStats({
-        totalUsers: statsRes.data.totalUsers || 0, todayUsers: statsRes.data.todayUsers || 0, paidUsers: statsRes.data.paidUsers || 0,
-        totalDeposit: statsRes.data.totalDeposit || 0, todayDeposit: statsRes.data.todayDeposit || 0, pendingDepositToday: statsRes.data.pendingDepositToday || 0,
-        totalWithdrawal: statsRes.data.totalWithdrawal || 0, approvedWithdrawalTotal: statsRes.data.approvedWithdrawalTotal || 0, approvedWithdrawalToday: statsRes.data.approvedWithdrawalToday || 0,
-        pendingWithdrawalTotal: statsRes.data.pendingWithdrawalTotal || 0, pendingWithdrawalToday: statsRes.data.pendingWithdrawalToday || 0,
+        totalUsers: statsRes.data.totalUsers || 0, 
+        todayUsers: statsRes.data.todayUsers || 0, 
+        paidUsers: statsRes.data.paidUsers || 0,
+        
+        totalDeposit: statsRes.data.totalDeposit || 0, 
+        todayDeposit: statsRes.data.todayDeposit || 0, 
+        pendingDepositToday: statsRes.data.pendingDepositToday || 0,
+        
+        totalWithdrawal: statsRes.data.totalWithdrawal || 0, 
+        todayWithdrawal: statsRes.data.approvedWithdrawalToday || 0, // 🔥 YEH LINE ADD KARO (approvedWithdrawalToday ko todayWithdrawal me daal diya)
+        
+        approvedWithdrawalTotal: statsRes.data.approvedWithdrawalTotal || 0, 
+        approvedWithdrawalToday: statsRes.data.approvedWithdrawalToday || 0,
+        pendingWithdrawalTotal: statsRes.data.pendingWithdrawalTotal || 0, 
+        pendingWithdrawalToday: statsRes.data.pendingWithdrawalToday || 0,
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);

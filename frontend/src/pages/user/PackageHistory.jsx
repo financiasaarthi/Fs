@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Package, Calendar, CheckCircle, ArrowLeftCircle, RefreshCcw, Zap, User, UserPlus } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Package, Calendar, CheckCircle, ArrowLeftCircle, RefreshCcw, Zap, User, UserPlus, Search } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../api/axios';
 import { useAuth } from '../../context/AuthContext';
@@ -12,14 +12,16 @@ function PackageHistory() {
     const localUser = JSON.parse(localStorage.getItem('user') || '{}');
     const activeUser = user || localUser; // Jo bhi mil jaye, usey active maan lo
 
-    console.log("🔥 ACTIVE USER:", activeUser);
-
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // Pagination & Search States
+    const [searchTerm, setSearchTerm] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [entriesPerPage, setEntriesPerPage] = useState(10);
+
     const fetchHistory = async () => {
-        // 🟢 FIX: Ab 'activeUser' ka use karo
         const currentUserId = activeUser?.userId || activeUser?._id || activeUser?.id; 
         
         if (!currentUserId) {
@@ -31,10 +33,7 @@ function PackageHistory() {
         setLoading(true);
         setError(null);
         try {
-            console.log(`🚀 Fetching history for user ID: ${currentUserId}`);
             const res = await api.get(`/user/my-package-history/${currentUserId}`);
-            console.log("✅ History Response:", res.data);
-            
             setHistory(Array.isArray(res.data) ? res.data : []);
         } catch (err) {
             console.error("❌ Error loading package history:", err);
@@ -46,15 +45,13 @@ function PackageHistory() {
     };
 
     useEffect(() => {
-        // 🟢 FIX: Yahan bhi activeUser check karo
         const currentUserId = activeUser?.userId || activeUser?._id || activeUser?.id;
-        
         if (currentUserId) {
             fetchHistory();
         } else {
             setLoading(false); 
         }
-    }, [user]); // user update hone par dobara chalega
+    }, [user]);
 
     // Helper: Package ke benefits dikhane ke liye
     const getPackageInfo = (amount) => {
@@ -63,115 +60,215 @@ function PackageHistory() {
         return { tasks: 10, cap: '2x' };
     };
 
-    return (
-        <div className="max-w-6xl mx-auto px-4 py-10 pb-20 font-sans">
-            
-            {/* Header Section */}
-            <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-4">
-                <button 
-                    onClick={() => navigate('/dashboard')} 
-                    className="flex items-center text-gray-400 font-black text-[10px] uppercase tracking-widest hover:text-emerald-600 transition-all"
-                >
-                    <ArrowLeftCircle size={18} className="mr-2" /> Back to Home
-                </button>
+    // 🔥 SEARCH LOGIC
+    const filteredHistory = useMemo(() => {
+        const s = searchTerm.toLowerCase();
+        return history.filter(item => {
+            const amountStr = item.amount?.toString() || '';
+            const descStr = item.description?.toLowerCase() || '';
+            const toUserStr = item.toUserId?.toString().toLowerCase() || '';
+            const fromUserStr = item.fromUserId?.toString().toLowerCase() || '';
+            return amountStr.includes(s) || descStr.includes(s) || toUserStr.includes(s) || fromUserStr.includes(s);
+        });
+    }, [history, searchTerm]);
 
-                <div className="text-center">
-                    <h2 className="text-3xl font-black text-gray-800 uppercase tracking-[0.1em]">Activation Records</h2>
-                    <p className="text-gray-400 text-[10px] font-bold mt-1 uppercase tracking-widest">History of your investments & gifts</p>
+    // Reset pagination on search
+    useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
+    // 📊 PAGINATION LOGIC
+    const indexOfLast = currentPage * entriesPerPage;
+    const indexOfFirst = indexOfLast - entriesPerPage;
+    const currentItems = filteredHistory.slice(indexOfFirst, indexOfLast);
+    const totalPages = Math.ceil(filteredHistory.length / entriesPerPage) || 1;
+
+    const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
+    const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+
+    return (
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans bg-gray-50 min-h-screen">
+            
+            {/* 🔵 Header Section */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+                <div className="flex items-center gap-4">
+                    <button 
+                        onClick={() => navigate('/dashboard')} 
+                        className="bg-white border border-gray-200 p-2 sm:p-2.5 rounded-lg text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 transition-colors shadow-sm"
+                        title="Back to Dashboard"
+                    >
+                        <ArrowLeftCircle size={22} />
+                    </button>
+                    <div>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 uppercase tracking-tight">Activation Records</h2>
+                        <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5">History of your investments & gifts</p>
+                    </div>
                 </div>
 
                 <button 
                     onClick={fetchHistory}
                     disabled={loading}
-                    className={`flex items-center gap-2 bg-white border border-gray-100 px-4 py-2 rounded-2xl shadow-sm text-[10px] font-black uppercase tracking-widest ${loading ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}`}
+                    className={`flex items-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-lg shadow-md text-sm font-semibold hover:bg-indigo-700 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
                 >
-                    <RefreshCcw size={14} className={loading ? "animate-spin" : ""} /> Refresh
+                    <RefreshCcw size={16} className={loading ? "animate-spin" : ""} /> Refresh Data
                 </button>
             </div>
 
-            {/* 🟢 Main History Section */}
-            <div className="grid grid-cols-1 gap-4">
+            {/* 🔍 SEARCH & FILTERS */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+                <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                    <input
+                        type="text"
+                        placeholder="Search by User ID, Amount or Description..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm sm:text-base text-gray-700 transition-colors"
+                    />
+                </div>
+                <select
+                    value={entriesPerPage}
+                    onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                    className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium outline-none cursor-pointer hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-indigo-500"
+                >
+                    <option value={10}>Show 10</option>
+                    <option value={20}>Show 20</option>
+                    <option value={50}>Show 50</option>
+                    <option value={100}>Show 100</option>
+                </select>
+            </div>
+
+            {/* 📊 Main Table Section */}
+            <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
                 {error ? (
-                     <div className="py-20 text-center bg-red-50 rounded-[2.5rem] border border-red-100">
-                        <p className="font-bold text-red-500">{error}</p>
-                        <button onClick={fetchHistory} className="mt-4 px-4 py-2 bg-red-100 text-red-600 rounded-lg text-xs font-bold uppercase">Retry</button>
-                    </div>
-                ) : loading ? (
-                    <div className="py-20 text-center bg-white rounded-[2.5rem] border border-gray-50">
-                        <div className="w-10 h-10 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-                        <p className="font-bold text-gray-300 uppercase text-[10px] tracking-[0.2em]">Fetching Records...</p>
-                    </div>
-                ) : history.length === 0 ? (
-                    <div className="text-center py-24 bg-white rounded-[3rem] border border-dashed border-gray-200">
-                        <Package size={40} className="mx-auto text-gray-200 mb-4" />
-                        <p className="text-xs font-black text-gray-300 uppercase tracking-[0.3em]">No Packages Found</p>
+                    <div className="py-16 text-center bg-red-50">
+                        <p className="font-semibold text-red-600">{error}</p>
+                        <button onClick={fetchHistory} className="mt-4 px-5 py-2 bg-red-600 text-white rounded-lg text-sm font-semibold hover:bg-red-700 transition-colors">Retry</button>
                     </div>
                 ) : (
-                    history.map((item, idx) => {
-                        const info = getPackageInfo(item.amount);
-                        
-                        const isGiftedToOthers = item.type === 'PACKAGE_BUY';
-                        // Use current user ID for comparison
-                        const currentUserId = user?.userId || user?._id || user?.id;
-                        const isReceivedFromOthers = item.type === 'PACKAGE_ACTIVATION' && item.fromUserId && item.fromUserId !== currentUserId;
-                        const isSelfBuy = item.type === 'PACKAGE_ACTIVATION' && (!item.fromUserId || item.fromUserId === currentUserId);
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                                <tr>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sr. No.</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Package Details</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Transaction Info</th>
+                                    <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
+                                </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-16 text-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                                                <span className="text-sm font-medium text-gray-500">Fetching Records...</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : currentItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="5" className="py-16 text-center">
+                                            <div className="flex flex-col items-center gap-3">
+                                                <Package size={40} className="text-gray-300" />
+                                                <span className="text-sm font-medium text-gray-500">No Packages Found</span>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    currentItems.map((item, idx) => {
+                                        const info = getPackageInfo(item.amount);
+                                        const isGiftedToOthers = item.type === 'PACKAGE_BUY';
+                                        const currentUserId = activeUser?.userId || activeUser?._id || activeUser?.id;
+                                        const isReceivedFromOthers = item.type === 'PACKAGE_ACTIVATION' && item.fromUserId && item.fromUserId !== currentUserId;
+                                        
+                                        return (
+                                            <tr key={idx} className="hover:bg-gray-50 transition-colors">
+                                                
+                                                {/* Sr. No. */}
+                                                <td className="px-4 py-3 text-sm text-gray-500 font-medium whitespace-nowrap">
+                                                    {indexOfFirst + idx + 1}
+                                                </td>
 
-                        return (
-                            <div 
-                                key={idx} 
-                                className="bg-white rounded-[2.5rem] shadow-xl shadow-gray-100/50 border border-gray-50 p-6 sm:p-8 flex flex-col md:flex-row items-center justify-between gap-6 hover:border-emerald-200 transition-all group relative overflow-hidden"
-                            >
-                                <div className={`absolute top-0 right-8 px-3 py-1 rounded-b-lg text-[9px] font-black uppercase tracking-widest text-white shadow-sm ${
-                                    isGiftedToOthers ? 'bg-blue-500' : isReceivedFromOthers ? 'bg-purple-500' : 'bg-emerald-500'
-                                }`}>
-                                    {isGiftedToOthers ? 'Gifted to Friend' : isReceivedFromOthers ? 'Received as Gift' : 'Self Purchase'}
-                                </div>
+                                                {/* Date */}
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
+                                                        <Calendar size={14} className="text-gray-400" />
+                                                        {new Date(item.createdAt).toLocaleDateString('en-GB')}
+                                                    </div>
+                                                </td>
 
-                                <div className="flex items-center gap-6 w-full md:w-auto mt-4 md:mt-0">
-                                    <div className={`w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform ${
-                                        isGiftedToOthers ? 'bg-blue-50 text-blue-600' : isReceivedFromOthers ? 'bg-purple-50 text-purple-600' : 'bg-emerald-50 text-emerald-600'
-                                    }`}>
-                                        <Zap size={30} fill="currentColor" fillOpacity={0.2} />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-xl font-black text-gray-800 uppercase leading-none">${item.amount} Package</h3>
-                                        <div className="flex items-center gap-3 mt-2">
-                                            <span className="flex items-center gap-1 text-[10px] font-black text-gray-400">
-                                                <Calendar size={12} /> {new Date(item.createdAt).toLocaleDateString('en-GB')}
-                                            </span>
-                                        </div>
-                                    </div>
-                                </div>
+                                                {/* Package Details */}
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="flex flex-col">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider text-white ${isGiftedToOthers ? 'bg-blue-500' : isReceivedFromOthers ? 'bg-purple-500' : 'bg-emerald-500'}`}>
+                                                                {isGiftedToOthers ? 'Gifted to Friend' : isReceivedFromOthers ? 'Received as Gift' : 'Self Purchase'}
+                                                            </span>
+                                                        </div>
+                                                        <span className="text-xs font-semibold text-gray-500 mt-1">
+                                                            {info.tasks} Tasks/Day • {info.cap} Capping
+                                                        </span>
+                                                    </div>
+                                                </td>
 
-                                <div className="flex flex-col gap-2 w-full md:w-auto bg-gray-50 p-3 rounded-2xl border border-gray-100">
-                                    {isGiftedToOthers ? (
-                                        <div className="flex items-center gap-2 text-blue-600 text-[10px] font-black uppercase tracking-wider">
-                                            <UserPlus size={14} /> Activated For ID: {item.toUserId || item.description.match(/\d+/)?.[0] || 'Unknown'}
-                                        </div>
-                                    ) : isReceivedFromOthers ? (
-                                        <div className="flex items-center gap-2 text-purple-600 text-[10px] font-black uppercase tracking-wider">
-                                            <User size={14} /> Paid By ID: {item.fromUserId || item.description.match(/\d+/)?.[0] || 'Unknown'}
-                                        </div>
-                                    ) : (
-                                        <div className="flex items-center justify-center gap-2 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
-                                            <CheckCircle size={14} /> Active on Account
-                                        </div>
-                                    )}
-                                    <p className="text-[9px] font-bold text-gray-400 text-center uppercase">{info.tasks} Tasks/Day • {info.cap} Capping</p>
-                                </div>
+                                                {/* Transaction Info (To/From) */}
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    {isGiftedToOthers ? (
+                                                        <div className="flex items-center gap-1.5 text-blue-700 text-sm font-bold bg-blue-50 px-2.5 py-1 rounded-md w-fit border border-blue-100">
+                                                            <UserPlus size={14} /> ID: {item.toUserId || item.description?.match(/\d+/)?.[0] || 'Unknown'}
+                                                        </div>
+                                                    ) : isReceivedFromOthers ? (
+                                                        <div className="flex items-center gap-1.5 text-purple-700 text-sm font-bold bg-purple-50 px-2.5 py-1 rounded-md w-fit border border-purple-100">
+                                                            <User size={14} /> ID: {item.fromUserId || item.description?.match(/\d+/)?.[0] || 'Unknown'}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center gap-1.5 text-emerald-700 text-sm font-bold bg-emerald-50 px-2.5 py-1 rounded-md w-fit border border-emerald-100">
+                                                            <CheckCircle size={14} /> Self Account
+                                                        </div>
+                                                    )}
+                                                </td>
 
-                                <div className="text-right w-full md:w-auto border-t md:border-t-0 md:border-l border-gray-100 pt-4 md:pt-0 md:pl-8">
-                                    <p className="text-[10px] font-black text-gray-300 uppercase tracking-widest mb-1">Amount</p>
-                                    <p className={`text-3xl font-black leading-none ${isGiftedToOthers ? 'text-red-500' : 'text-emerald-500'}`}>
-                                        <span className="text-sm mr-1">{isGiftedToOthers ? '-' : '+'}$</span>
-                                        {Number(item.amount).toFixed(2)}
-                                    </p>
-                                </div>
-                            </div>
-                        );
-                    })
+                                                {/* Amount */}
+                                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                    <span className={`text-sm sm:text-base font-bold px-2.5 py-1 rounded-lg ${isGiftedToOthers ? 'text-red-600 bg-red-50 border border-red-100' : 'text-emerald-600 bg-emerald-50 border border-emerald-100'}`}>
+                                                        {isGiftedToOthers ? '-' : '+'}${Number(item.amount).toFixed(2)}
+                                                    </span>
+                                                </td>
+
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 )}
             </div>
+
+            {/* 📑 PAGINATION CONTROLS */}
+            {!loading && !error && filteredHistory.length > entriesPerPage && (
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
+                    <button 
+                        onClick={handlePrev} 
+                        disabled={currentPage === 1} 
+                        className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        ← Previous
+                    </button>
+                    
+                    <span className="text-sm font-medium text-gray-600">
+                        Showing {indexOfFirst + 1} to {Math.min(indexOfLast, filteredHistory.length)} of {filteredHistory.length}
+                    </span>
+                    
+                    <button 
+                        onClick={handleNext} 
+                        disabled={currentPage === totalPages} 
+                        className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                        Next →
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

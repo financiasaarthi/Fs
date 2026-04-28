@@ -30,90 +30,103 @@ const BinaryHistory = () => {
   }, [user?.userId, token]);
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-8 space-y-6 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans bg-gray-50 min-h-screen">
       
       {/* 🔵 Header Section */}
-      <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div className="flex items-center gap-4">
-          <div className="bg-blue-600 p-3 rounded-2xl text-white shadow-lg shadow-blue-100">
-            <TrendingUp size={28} />
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Matching History</h1>
-            <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">Binary Pairs & Carry Forward Logs</p>
-          </div>
+      <div className="flex items-center gap-3 mb-6 sm:mb-8">
+        <div className="bg-blue-600 p-2 sm:p-3 rounded-lg text-white shadow-sm">
+          <TrendingUp size={24} />
+        </div>
+        <div>
+          <h2 className="text-xl sm:text-2xl font-bold text-gray-800">
+            Matching History
+          </h2>
+          <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5">
+            Binary Pairs & Carry Forward Logs
+          </p>
         </div>
       </div>
 
       {/* 📊 Table Container */}
-      <div className="bg-white rounded-[2rem] shadow-xl border border-gray-100 overflow-hidden">
-        <div className="overflow-x-auto custom-scroll">
-          <table className="w-full text-left border-collapse min-w-[600px]">
-            <thead>
-              <tr className="bg-gray-50/50 text-gray-400 text-[10px] uppercase tracking-[0.2em] font-black border-b border-gray-100">
-                <th className="p-4 sm:p-6">Date</th>
-                <th className="p-4 sm:p-6 text-center">Match (L | R)</th>
-                <th className="p-4 sm:p-6 text-center text-blue-600">Vol Used</th>
-                <th className="p-4 sm:p-6 text-center text-red-500">Flushed</th>
-                <th className="p-4 sm:p-6 text-center text-orange-500">Carry (L | R)</th>
-                <th className="p-4 sm:p-6 text-right text-emerald-600">Income</th>
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Match (L | R)</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Vol Used</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Flushed</th>
+                <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Carry (L | R)</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Income</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-50">
+            <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="6" className="p-20 text-center">
-                    <div className="flex flex-col items-center gap-2">
+                  <td colSpan="6" className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
                         <Loader2 className="animate-spin text-blue-600" size={32} />
-                        <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Fetching Logs...</span>
+                        <span className="text-sm font-medium text-gray-500">Fetching Logs...</span>
                     </div>
                   </td>
                 </tr>
               ) : history.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="p-20 text-center">
-                    <div className="flex flex-col items-center gap-2 opacity-30">
-                        <History size={48} className="text-gray-400" />
-                        <span className="text-sm font-black text-gray-400 uppercase tracking-widest">No Records Found</span>
+                  <td colSpan="6" className="py-16 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                        <History size={40} className="text-gray-300" />
+                        <span className="text-sm font-medium text-gray-500">No Records Found</span>
                     </div>
                   </td>
                 </tr>
               ) : (
                 history.map((record, index) => (
-                  <tr key={index} className="hover:bg-blue-50/30 transition-colors group">
-                    <td className="p-4 sm:p-6 text-[10px] sm:text-xs font-black text-gray-800 whitespace-nowrap uppercase">
-                      {/* 🟢 FIX: createdAt use kiya */}
+                  <tr key={index} className="hover:bg-gray-50 transition-colors">
+                    
+                    {/* Date */}
+                    <td className="px-4 py-3 text-sm font-semibold text-gray-700 whitespace-nowrap">
                       {new Date(record.createdAt || record.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="p-4 sm:p-6 text-[10px] sm:text-xs text-center font-bold text-gray-500">
-                      <span className="text-blue-600">${record.leftBusiness || 0}</span>
-                      <span className="mx-2 text-gray-200">|</span>
-                      <span className="text-purple-600">${record.rightBusiness || 0}</span>
+                    
+                    {/* Match L | R */}
+                    <td className="px-4 py-3 text-sm text-center font-medium text-gray-500 whitespace-nowrap">
+                      <span className="text-blue-600 font-bold">${record.leftBusiness || 0}</span>
+                      <span className="mx-2 text-gray-300">|</span>
+                      <span className="text-purple-600 font-bold">${record.rightBusiness || 0}</span>
                     </td>
-                    <td className="p-4 sm:p-6 text-center">
-                      <span className="bg-blue-50 text-blue-700 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg text-[10px] sm:text-xs font-black border border-blue-100">
+                    
+                    {/* Volume Used */}
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span className="bg-blue-50 text-blue-700 px-2.5 py-1 rounded-md text-xs font-bold border border-blue-100">
                         ${record.matchedVolume || 0}
                       </span>
                     </td>
-                    <td className="p-4 sm:p-6 text-center">
+                    
+                    {/* Flushed */}
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
                       {record.flushedVolume > 0 ? (
-                        <span className="flex items-center justify-center gap-1 text-red-500 font-black text-[10px] sm:text-xs">
-                          <AlertCircle size={12} /> ${record.flushedVolume}
+                        <span className="inline-flex items-center justify-center gap-1 text-red-600 font-semibold text-xs bg-red-50 px-2 py-1 rounded-md border border-red-100">
+                          <AlertCircle size={14} /> ${record.flushedVolume}
                         </span>
                       ) : (
-                        <span className="text-gray-300 text-[10px] font-bold">—</span>
+                        <span className="text-gray-400 text-sm font-medium">—</span>
                       )}
                     </td>
-                    <td className="p-4 sm:p-6 text-[10px] sm:text-xs text-center font-black text-orange-500 italic">
-                      {record.carryForwardLeft || 0} <span className="text-gray-300">|</span> {record.carryForwardRight || 0}
+                    
+                    {/* Carry L | R */}
+                    <td className="px-4 py-3 text-sm text-center font-bold text-orange-600 whitespace-nowrap bg-orange-50/30">
+                      {record.carryForwardLeft || 0} <span className="text-orange-200 mx-1">|</span> {record.carryForwardRight || 0}
                     </td>
-                    <td className="p-4 sm:p-6 text-right">
+                    
+                    {/* Income */}
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
                       <div className="flex flex-col items-end">
-                        <span className="text-xs sm:text-sm font-black text-emerald-600">
+                        <span className="text-sm font-bold text-emerald-600">
                           +${Number(record.incomeEarned || 0).toFixed(2)}
                         </span>
                         {record.isCapped && (
-                          <span className="text-[8px] bg-red-50 text-red-600 px-2 py-0.5 rounded-md font-black uppercase mt-1 border border-red-100">
+                          <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-bold uppercase mt-1">
                             Daily Cap Hit
                           </span>
                         )}

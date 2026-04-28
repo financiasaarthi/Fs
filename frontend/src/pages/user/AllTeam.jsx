@@ -42,7 +42,7 @@ const AllTeam = () => {
     fetchAllTeam();
   }, [user?.userId, token]);
 
-  // 🔥 SEARCH LOGIC: Optimized for large arrays
+  // 🔥 SEARCH LOGIC
   const filteredMembers = useMemo(() => {
     const s = searchTerm.toLowerCase();
     return members.filter(m => 
@@ -66,51 +66,51 @@ const AllTeam = () => {
 
   // Stats Calculation
   const activeCount = members.filter(m => m.isActive).length;
-  const totalBusiness = members.reduce((sum, m) => sum + (m.currentPackage || 0), 0);
+  const totalBusiness = members.reduce((sum, m) => sum + (Number(m.currentPackage) || 0), 0);
 
   return (
-    <div className="max-w-7xl mx-auto px-3 sm:px-6 py-6 sm:py-10 font-sans pb-20 animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans min-h-screen">
       
       {/* 🔵 TOP PREMIUM HEADER */}
-      <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 p-8 rounded-[3rem] text-white shadow-2xl relative overflow-hidden mb-10 border-b-4 border-indigo-500/30">
-        <div className="absolute top-0 right-0 w-80 h-80 bg-white/5 rounded-full -mr-20 -mt-20 blur-3xl"></div>
+      <div className="bg-gradient-to-br from-indigo-900 via-purple-900 to-indigo-800 p-6 sm:p-8 rounded-2xl text-white shadow-xl relative overflow-hidden mb-8 border-b-4 border-indigo-500/30">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -mr-10 -mt-10 blur-3xl pointer-events-none"></div>
         
         <div className="relative z-10 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-4">
-            <div className="bg-white/10 p-4 rounded-3xl backdrop-blur-md border border-white/10">
-                <Layers className="text-purple-300" size={32} />
+            <div className="bg-white/10 p-3 sm:p-4 rounded-xl backdrop-blur-md border border-white/10">
+                <Layers className="text-purple-300 w-6 h-6 sm:w-8 sm:h-8" />
             </div>
             <div>
-                <h2 className="text-3xl font-black uppercase tracking-tighter">Network Downline</h2>
-                <p className="text-indigo-200 font-bold text-[10px] tracking-[0.2em] uppercase opacity-70">Total Binary Hierarchy</p>
+                <h2 className="text-2xl sm:text-3xl font-bold uppercase tracking-tight">Network Downline</h2>
+                <p className="text-indigo-200 text-xs sm:text-sm font-medium uppercase mt-1">Total Binary Hierarchy</p>
             </div>
           </div>
-          <div className="bg-black/20 backdrop-blur-xl px-8 py-4 rounded-[2rem] border border-white/10 shadow-inner">
-             <span className="text-[9px] font-black uppercase tracking-[0.3em] text-indigo-300 block mb-1">Downline Worth</span>
-             <span className="text-3xl font-black text-yellow-400">${totalBusiness.toLocaleString()}</span>
+          <div className="bg-black/20 backdrop-blur-md px-6 py-3 rounded-xl border border-white/10 w-full md:w-auto text-center md:text-left">
+             <span className="text-xs font-semibold uppercase text-indigo-300 block mb-1">Downline Worth</span>
+             <span className="text-2xl sm:text-3xl font-bold text-yellow-400">${totalBusiness.toLocaleString()}</span>
           </div>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-10">
-          <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex items-center gap-4">
-            <div className="bg-blue-500/20 p-3 rounded-2xl"><Users className="text-blue-300" size={24}/></div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mt-8 relative z-10">
+          <div className="bg-white/10 p-4 sm:p-5 rounded-xl border border-white/10 flex items-center gap-4">
+            <div className="bg-blue-500/30 p-2.5 rounded-lg"><Users className="text-blue-300" size={24}/></div>
             <div>
-                <p className="text-[10px] font-black uppercase opacity-50 tracking-widest">Total Team</p>
-                <h3 className="text-2xl font-black">{members.length} Members</h3>
+                <p className="text-xs font-medium uppercase text-indigo-200">Total Team</p>
+                <h3 className="text-xl font-bold">{members.length} Members</h3>
             </div>
           </div>
-          <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex items-center gap-4">
-            <div className="bg-emerald-500/20 p-3 rounded-2xl"><CheckCircle className="text-emerald-300" size={24}/></div>
+          <div className="bg-white/10 p-4 sm:p-5 rounded-xl border border-white/10 flex items-center gap-4">
+            <div className="bg-emerald-500/30 p-2.5 rounded-lg"><CheckCircle className="text-emerald-300" size={24}/></div>
             <div>
-                <p className="text-[10px] font-black uppercase opacity-50 tracking-widest">Active IDs</p>
-                <h3 className="text-2xl font-black text-emerald-400">{activeCount} Paid</h3>
+                <p className="text-xs font-medium uppercase text-indigo-200">Active IDs</p>
+                <h3 className="text-xl font-bold text-emerald-400">{activeCount} Paid</h3>
             </div>
           </div>
-          <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex items-center gap-4">
-            <div className="bg-purple-500/20 p-3 rounded-2xl"><TrendingUp className="text-purple-300" size={24}/></div>
+          <div className="bg-white/10 p-4 sm:p-5 rounded-xl border border-white/10 flex items-center gap-4">
+            <div className="bg-purple-500/30 p-2.5 rounded-lg"><TrendingUp className="text-purple-300" size={24}/></div>
             <div>
-                <p className="text-[10px] font-black uppercase opacity-50 tracking-widest">Today's Growth</p>
-                <h3 className="text-2xl font-black text-purple-300">
+                <p className="text-xs font-medium uppercase text-indigo-200">Today's Growth</p>
+                <h3 className="text-xl font-bold text-purple-300">
                     +{members.filter(m => new Date(m.createdAt).toDateString() === new Date().toDateString()).length}
                 </h3>
             </div>
@@ -119,21 +119,21 @@ const AllTeam = () => {
       </div>
 
       {/* 🔍 SEARCH & FILTERS */}
-      <div className="flex flex-col md:flex-row gap-4 mb-8">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-indigo-600 transition-colors" size={20} />
+      <div className="flex flex-col sm:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
-            placeholder="Find member by Name, ID, Sponsor ID or Mobile..."
+            placeholder="Find by Name, ID, Sponsor ID or Mobile..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-14 pr-6 py-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-indigo-500/5 outline-none font-bold text-gray-700 transition-all placeholder:text-gray-300"
+            className="w-full pl-10 pr-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm sm:text-base text-gray-700 transition-colors"
           />
         </div>
         <select
           value={entriesPerPage}
           onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-          className="px-8 py-5 bg-white border border-gray-100 rounded-[2rem] shadow-sm font-black text-[10px] uppercase tracking-[0.2em] outline-none cursor-pointer hover:bg-gray-50 transition-colors"
+          className="w-full sm:w-auto px-4 py-2 sm:py-2.5 bg-white border border-gray-300 rounded-lg shadow-sm text-sm font-medium outline-none cursor-pointer hover:bg-gray-50 transition-colors focus:ring-2 focus:ring-indigo-500"
         >
           <option value={10}>Show 10</option>
           <option value={25}>Show 25</option>
@@ -143,69 +143,108 @@ const AllTeam = () => {
       </div>
 
       {/* 📋 TABLE AREA */}
-      <div className="bg-white rounded-[3rem] shadow-xl shadow-indigo-100/20 border border-gray-50 overflow-hidden">
+      <div className="bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-32 text-center flex flex-col items-center gap-4">
-             <Loader2 className="w-12 h-12 text-indigo-600 animate-spin" />
-             <p className="font-black text-gray-400 uppercase tracking-[0.3em] text-[10px]">Mapping Downline Hierarchy...</p>
+          <div className="py-16 text-center flex flex-col items-center gap-3">
+             <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+             <p className="font-medium text-gray-500 text-sm">Mapping Downline Hierarchy...</p>
           </div>
         ) : (
-          <div className="overflow-x-auto custom-scroll">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-indigo-50/50">
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50">#</th>
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50">Member Identity</th>
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50 text-center">Referrer</th>
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50 text-center">Binary Side</th>
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50 text-center">Activation</th>
-                  <th className="p-6 text-[10px] font-black text-indigo-900/40 uppercase tracking-[0.2em] border-b border-indigo-100/50 text-right">Join Date</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No</th>
+                  {/* 🔥 Separate Columns */}
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">User ID</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Mobile</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sponsor</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tree Side</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Active Plan</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Join Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="py-32 text-center font-black text-gray-200 uppercase tracking-[0.5em] text-sm">Hierarchy is Empty</td>
+                    <td colSpan="8" className="py-12 text-center text-gray-500 text-sm font-medium">
+                      No team members found in hierarchy.
+                    </td>
                   </tr>
                 ) : (
                   currentItems.map((member, index) => (
-                    <tr key={member._id || index} className="hover:bg-indigo-50/30 transition-all group">
-                      <td className="p-6 text-xs font-black text-gray-300 group-hover:text-indigo-400">
-                        {String(indexOfFirst + index + 1).padStart(2, '0')}
+                    <tr key={member._id || index} className="hover:bg-gray-50 transition-colors">
+                      
+                      {/* S.No */}
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                        {indexOfFirst + index + 1}
                       </td>
-                      <td className="p-6">
-                        <div className="flex flex-col">
-                          <span className="font-black text-gray-800 text-sm uppercase leading-tight tracking-tight">{member.name}</span>
-                          <span className="text-[10px] font-black text-indigo-500 mt-1.5 flex items-center gap-2">
-                             <span className="bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">ID: {member.userId}</span>
-                          </span>
-                          <a href={`https://wa.me/${member.mobile}`} target="_blank" rel="noreferrer" className="flex items-center gap-1.5 mt-2 text-emerald-600 hover:text-emerald-700 transition-colors">
-                             <MessageCircle size={12} className="fill-emerald-50" /> 
-                             <span className="text-[9px] font-black uppercase tracking-tighter">Support Chat</span>
-                          </a>
-                        </div>
+                      
+                      {/* Name */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                        {member.name || "-"}
                       </td>
-                      <td className="p-6 text-center">
-                        <span className="bg-gray-100 text-gray-500 text-[9px] font-black px-3 py-1.5 rounded-xl uppercase tracking-tighter border border-gray-200">
-                          Sponsor: {member.sponsorId || 'System'}
+
+                      {/* User ID */}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
+                        {member.userId || "-"}
+                      </td>
+
+                      {/* Mobile + WhatsApp Click */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {member.mobile ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium text-gray-800">{member.mobile}</span>
+                            <a 
+                              href={`https://wa.me/${member.mobile}`} 
+                              target="_blank" 
+                              rel="noreferrer" 
+                              className="bg-emerald-100 p-1.5 rounded-full text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm"
+                              title="Chat on WhatsApp"
+                            >
+                              <MessageCircle size={14} /> 
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-sm text-gray-400">-</span>
+                        )}
+                      </td>
+
+                      {/* Sponsor */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className="bg-gray-100 text-gray-600 text-xs font-semibold px-2.5 py-1 rounded-md border border-gray-200">
+                          {member.sponsorId || 'System'}
                         </span>
                       </td>
-                      <td className="p-6 text-center">
-                        <span className={`px-3 py-1.5 rounded-xl text-[9px] font-black tracking-[0.2em] border ${member.position === 'LEFT' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-orange-50 text-orange-600 border-orange-100'}`}>
-                          {member.position}
+
+                      {/* Tree Side */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${member.position === 'LEFT' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                          {member.position || "-"}
                         </span>
                       </td>
-                      <td className="p-6 text-center">
+
+                      {/* Active Plan / Activation */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
                         <div className="flex flex-col items-center">
-                            <span className={`text-xs font-black ${member.isActive ? 'text-gray-800' : 'text-gray-300'}`}>
-                            {member.isActive ? `$${member.currentPackage}` : 'Inactive'}
+                            <span className={`text-sm font-bold ${member.isActive ? 'text-gray-900' : 'text-gray-400'}`}>
+                              {member.isActive ? `$${member.currentPackage || 0}` : 'Inactive'}
                             </span>
-                            {member.isActive && <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse mt-1.5 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>}
+                            {member.isActive && (
+                              <div className="flex items-center gap-1 mt-0.5">
+                                <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+                                <span className="text-[10px] font-bold text-emerald-600 uppercase">Paid</span>
+                              </div>
+                            )}
                         </div>
                       </td>
-                      <td className="p-6 text-right font-black text-gray-400 text-[10px] uppercase">
+
+                      {/* Join Date */}
+                      <td className="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">
                         {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '---'}
                       </td>
+
                     </tr>
                   ))
                 )}
@@ -217,23 +256,25 @@ const AllTeam = () => {
 
       {/* 📑 PAGINATION CONTROLS */}
       {!loading && filteredMembers.length > entriesPerPage && (
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-6 mt-10 bg-white p-6 rounded-[2.5rem] shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
           <button 
             onClick={handlePrev} 
             disabled={currentPage === 1} 
-            className="w-full sm:w-auto px-10 py-4 rounded-[1.5rem] bg-gray-900 text-white disabled:bg-gray-100 disabled:text-gray-300 font-black text-[10px] tracking-[0.2em] hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            ← PREV PAGE
+            ← Previous
           </button>
-          <span className="text-[10px] font-black text-gray-400 uppercase tracking-[0.4em]">
-            Page {currentPage} / {totalPages}
+          
+          <span className="text-sm font-medium text-gray-600">
+            Showing {indexOfFirst + 1} to {Math.min(indexOfLast, filteredMembers.length)} of {filteredMembers.length}
           </span>
+          
           <button 
             onClick={handleNext} 
             disabled={currentPage === totalPages} 
-            className="w-full sm:w-auto px-10 py-4 rounded-[1.5rem] bg-gray-900 text-white disabled:bg-gray-100 disabled:text-gray-300 font-black text-[10px] tracking-[0.2em] hover:bg-black transition-all active:scale-95 shadow-lg shadow-gray-200"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            NEXT STEP →
+            Next →
           </button>
         </div>
       )}
