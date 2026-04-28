@@ -140,20 +140,35 @@ function TaskCenter() {
     }
   };
 
-  // 🎬 YouTube logic
+  // 🎬 YouTube & Shorts logic Fix
   const isYouTube = currentVideo?.url?.includes("youtube.com") || currentVideo?.url?.includes("youtu.be");
+  const isShorts = currentVideo?.url?.includes("/shorts/");
+
   const getYouTubeEmbed = (url) => {
     if (!url) return "";
-    if (url.includes("watch?v=")) return url.replace("watch?v=", "embed/");
-    if (url.includes("youtu.be")) {
-      const id = url.split("/").pop();
-      return `https://www.youtube.com/embed/${id}`;
+    let embedUrl = url;
+    
+    // Normal YouTube link
+    if (url.includes("watch?v=")) {
+      embedUrl = url.replace("watch?v=", "embed/");
+    } 
+    // Shorts link
+    else if (url.includes("/shorts/")) {
+      embedUrl = url.replace("/shorts/", "/embed/");
+    } 
+    // youtu.be short link
+    else if (url.includes("youtu.be/")) {
+      const id = url.split("youtu.be/")[1]?.split("?")[0];
+      embedUrl = `https://www.youtube.com/embed/${id}`;
     }
-    return url;
+    
+    return embedUrl;
   };
   
-  // 🔥 Only add autoplay when user manually clicks our overlay (better browser support)
-  const finalUrl = isYouTube ? `${getYouTubeEmbed(currentVideo?.url)}?autoplay=1&playsinline=1` : currentVideo?.url;
+  // 🔥 Autoplay fix: Added mute=1 so it forces autoplay on mobile when overlay is clicked
+  const finalUrl = isYouTube 
+    ? `${getYouTubeEmbed(currentVideo?.url)}${getYouTubeEmbed(currentVideo?.url).includes('?') ? '&' : '?'}autoplay=1&mute=1&playsinline=1` 
+    : currentVideo?.url;
   
   // 🔗 SHARE LOGIC
   const shareUrl = currentVideo?.url || window.location.origin;
@@ -170,8 +185,16 @@ function TaskCenter() {
   const renderVideoArea = () => (
     <div className="mt-6 animate-in fade-in duration-500">
       
-      {/* 🎬 Video Player */}
-      <div className="relative w-full aspect-video bg-black rounded-[2rem] overflow-hidden shadow-2xl border-[4px] border-gray-900 flex items-center justify-center group">
+      {/* ⏱️ TIMER DISPLAY MOVED OUTSIDE & ABOVE VIDEO */}
+      {isVideoPlaying && hasStartedPlaying && !isVideoFinished && (
+        <div className="mb-4 bg-red-600 text-white px-6 py-3 rounded-2xl flex items-center justify-center shadow-lg font-black tracking-[0.2em] animate-pulse border-2 border-red-500/50 w-max mx-auto">
+          <Timer className="mr-3" size={24} /> 
+          TIME LEFT: 00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
+        </div>
+      )}
+
+      {/* 🎬 Video Player - Mobile size aur Shorts ke hisaab se dynamically adjust */}
+      <div className={`relative w-full ${isShorts ? 'aspect-[9/16] max-w-sm mx-auto' : 'aspect-video min-h-[250px] md:min-h-[350px]'} bg-black rounded-[2rem] overflow-hidden shadow-2xl border-[4px] border-gray-900 flex items-center justify-center group`}>
         
         {/* 🛑 MANUAL PLAY OVERLAY (Timer will NOT start until this is clicked) */}
         {!hasStartedPlaying && !isVideoFinished && (
@@ -182,7 +205,7 @@ function TaskCenter() {
             <div className="bg-red-600 text-white rounded-[2rem] py-4 px-8 shadow-xl group-hover:scale-110 transition-transform flex items-center justify-center border-4 border-red-500/30">
               <Play fill="currentColor" size={48} />
             </div>
-            <p className="text-white mt-6 font-black tracking-widest uppercase text-xs animate-pulse">
+            <p className="text-white mt-6 font-black tracking-widest uppercase text-xs md:text-sm animate-pulse text-center px-4">
               Click Here To Play Video & Start Timer
             </p>
           </div>
@@ -195,13 +218,6 @@ function TaskCenter() {
           ) : (
             <video src={finalUrl} controls autoPlay playsInline className="w-full h-full object-contain" />
           )
-        )}
-
-        {/* ⏱️ TIMER DISPLAY */}
-        {isVideoPlaying && hasStartedPlaying && (
-          <div className="absolute top-4 right-4 bg-red-600 text-white px-5 py-2.5 rounded-xl flex items-center shadow-lg font-black tracking-[0.2em] z-20 animate-pulse border-2 border-red-500/50">
-            <Timer className="mr-2" size={18} /> 00:{timeLeft < 10 ? `0${timeLeft}` : timeLeft}
-          </div>
         )}
       </div>
 
@@ -239,7 +255,7 @@ function TaskCenter() {
           Telegram
         </a>
 
-        {/* Instagram Share (Copies to clipboard) */}
+        {/* Instagram Share */}
         <button 
           onClick={handleInstagramShare}
           className="flex items-center gap-2 bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] hover:opacity-90 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
