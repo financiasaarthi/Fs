@@ -27,15 +27,33 @@ const ActivePackageCard = ({ setModalState }) => {
       ? [...new Set(user.activePackages)].sort((a, b) => a - b) // Duplicate hatane ke liye Set use kiya
       : user?.currentPackage ? [user.currentPackage] : [];
 
-  useEffect(() => {
-    // 🎯 7-DIGIT ID USE KIYA HAI (userId)
-    // Isse aapka task progress hamesha sahi account se connect rahega
-    if (user?.userId) {
-      const storedProgress = JSON.parse(localStorage.getItem(`pkgProgress_${user.userId}`)) || {};
-      setLocalProgress(storedProgress);
-    }
-  }, [user?.userId, user?.dailyVideosWatched]);
+useEffect(() => {
+    // 🔥 REAL-TIME SYNC: LocalStorage hata diya, direct database ki value se calculate karenge
+    if (user) {
+      let totalDBWatched = user.dailyVideosWatched || 0;
+      let calculatedProgress = {};
 
+      // Packages ko sequence mein lagana (small to big)
+      const sortedPackages = [...activePackages].sort((a, b) => a - b);
+
+      sortedPackages.forEach(pkgPrice => {
+        // Dhyaan dein: is file mein 'tasks' naam ki key hai, 'maxTasks' nahi
+        const maxForPkg = packagesConfig[pkgPrice]?.tasks || 0; 
+        
+        if (totalDBWatched >= maxForPkg) {
+          calculatedProgress[pkgPrice] = maxForPkg;
+          totalDBWatched -= maxForPkg; // Jo use ho gaye unko minus kar do
+        } else {
+          calculatedProgress[pkgPrice] = totalDBWatched;
+          totalDBWatched = 0; // Baaki sab mein 0 jayega
+        }
+      });
+
+      setLocalProgress(calculatedProgress);
+    }
+  }, [user?.dailyVideosWatched, user?.userId]); // Jab value backend se update hogi, ye auto refresh hoga
+
+  
   // 🔴 AGAR KOI PACKAGE NAHI HAI (Empty State)
   if (activePackages.length === 0) {
     return (

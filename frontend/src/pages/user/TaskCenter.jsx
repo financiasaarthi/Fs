@@ -38,19 +38,32 @@ function TaskCenter() {
     : (user?.currentPackage ? [user.currentPackage] : []);
 
   // 🔥 SMART SYNC: Using 7-Digit Numeric userId for LocalStorage
+ // 🔥 REAL-TIME SYNC: Direct Database ki value se progress distribute karna (No LocalStorage)
   useEffect(() => {
-    if (user?.userId) {
-      const totalDBWatched = user?.dailyVideosWatched || 0;
-      let storedProgress = JSON.parse(localStorage.getItem(`pkgProgress_${user.userId}`)) || {};
-      
-      if (totalDBWatched === 0) {
-        storedProgress = {};
-        activePackages.forEach(pkg => storedProgress[pkg] = 0);
-        localStorage.setItem(`pkgProgress_${user.userId}`, JSON.stringify(storedProgress));
-      }
-      setLocalProgress(storedProgress);
+    if (user) {
+      let totalDBWatched = user.dailyVideosWatched || 0; // Backend se aayi hui total watched videos
+      let calculatedProgress = {};
+
+      // Packages ko sequence mein lagana (small to big)
+      const sortedPackages = [...activePackages].sort((a, b) => a - b);
+
+      // Total videos ko packages mein distribute karna
+      sortedPackages.forEach(pkgPrice => {
+        const maxForPkg = packagesConfig[pkgPrice]?.maxTasks || 0;
+        
+        if (totalDBWatched >= maxForPkg) {
+          calculatedProgress[pkgPrice] = maxForPkg;
+          totalDBWatched -= maxForPkg; // Jo use ho gaye unko minus kar do
+        } else {
+          calculatedProgress[pkgPrice] = totalDBWatched;
+          totalDBWatched = 0; // Baaki sab mein 0 jayega
+        }
+      });
+
+      setLocalProgress(calculatedProgress);
     }
-  }, [user?.dailyVideosWatched, user?.userId]);
+  }, [user?.dailyVideosWatched, user?.userId]); // Jab bhi user data update hoga, progress auto-update hogi
+
 
   const fetchRandomVideo = async () => {
     try {
@@ -110,16 +123,10 @@ function TaskCenter() {
         headers: { Authorization: `Bearer ${token}` }
       });
       
+    // Jab success response aaye, bas user ka global context update kar do.
       if (res.data.user) {
-        updateUser(res.data.user);
+        updateUser(res.data.user); // Isse automatically upar wala useEffect trigger hoga aur progress update ho jayegi!
       }
-
-      setLocalProgress(prev => {
-        const newProgress = { ...prev };
-        newProgress[activePlayingPackage] = (newProgress[activePlayingPackage] || 0) + 1;
-        localStorage.setItem(`pkgProgress_${user.userId}`, JSON.stringify(newProgress));
-        return newProgress;
-      });
       
       setRewardData({
         amount: 0.10,
