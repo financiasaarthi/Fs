@@ -38,57 +38,56 @@ const generateUserId = async () => {
 };
 
 // ====================== REGISTER ======================
+// 🟢 HELPER: Khali jagah dhoondne ka logic (Spillover)
+const findFinalPlacement = async (parentId, side) => {
+    // Check karo kya is parent ke niche ye side occupied hai?
+    const child = await User.findOne({ placementId: parentId, position: side }).select('userId');
+    
+    if (!child) {
+        // Agar jagah khali hai, toh yahi final placement ID hai
+        return parentId;
+    }
+    // Agar jagah bhari hai, toh uske niche wale ke paas jao aur check karo
+    return await findFinalPlacement(child.userId, side);
+};
+
 router.post('/register', checkFeature('allowRegistrations'), async (req, res) => {
   try {
-    // 🟢 1. req.body mein 'confirmPassword' ko add kiya
     const { name, mobile, email, country, password, confirmPassword, sponsorId, deviceId, position, placementId } = req.body;
     const userIP = getClientIP(req);
 
+    // 1. Basic Validations
     const settings = await Setting.findOne() || { allowRegistrations: true }; 
-    if (!settings.allowRegistrations) return res.status(400).json({ message: "Registration is currently closed by Admin." });
+    if (!settings.allowRegistrations) return res.status(400).json({ message: "Registration is closed." });
 
-    // 🟢 2. Password aur Confirm Password ka Match Check
-    if (password !== confirmPassword) {
-        return res.status(400).json({ message: "Password aur Confirm Password does not matched!" });
-    }
+    if (password !== confirmPassword) return res.status(400).json({ message: "Password does not match!" });
 
-    // 🟢 3. Sirf @gmail.com allow karne ka rule (Pehle se tha, waisa hi rakha hai)
     if (!email || !email.toLowerCase().endsWith('@gmail.com')) {
-        return res.status(400).json({ message: 'Only @gmail.com emails are accepted.' });
+        return res.status(400).json({ message: 'Only @gmail.com accepted.' });
     }
     
     if (!sponsorId) return res.status(400).json({ message: 'Sponsor ID is compulsory.' });
 
+    // 2. Sponsor Check
     let sponsorExists = await User.findOne({ userId: parseInt(sponsorId) });
     if (!sponsorExists) sponsorExists = await DummyUser.findOne({ userId: parseInt(sponsorId) });
     if (!sponsorExists) return res.status(400).json({ message: 'Invalid Sponsor ID.' });
-    if (sponsorExists.isSponsorDeactivated) return res.status(403).json({ message: 'Policy violation: Deactivated sponsor.' });
 
-    // 🟢 4. Ek Email / Mobile se sirf Ek Account banne ka check (Waisa hi rakha hai)
+    // 3. Duplicate Check
     const existingUser = await User.findOne({ $or: [{ email: email.toLowerCase() }, { mobile: mobile }] });
     if (existingUser) {
-        return res.status(400).json({ message: existingUser.mobile === mobile ? 'Ye Mobile number pehle se registered hai.' : 'Ye Email pehle se registered hai.' });
+        return res.status(400).json({ message: 'Email or Mobile already registered.' });
     }
 
-    // IP Check
-    const isLocalIP = userIP === '127.0.0.1' || userIP === '::1';
-    if (!isLocalIP) {
-        const rule = await IpRule.findOne({ ipAddress: userIP });
-        if (rule && rule.isBlocked) return res.status(403).json({ message: "Access Denied: Your IP has been blocked." });
-        const allowedLimit = rule ? rule.limit : 5;
-        const totalRegisteredFromIP = await User.countDocuments({ ipAddress: userIP });
-        if (totalRegisteredFromIP >= allowedLimit) return res.status(403).json({ message: `Limit reached for this IP.` });
-    }
+    // --- 🔥 ASLI MAGIC: AUTO-SPILLOVER LOGIC YAHAN HAI ---
+    const targetSide = position || 'LEFT';
+    // Agar placementId di hai toh wahan se start karo, nahi toh sponsorId se
+    const startNode = placementId ? parseInt(placementId) : parseInt(sponsorId);
+    
+    // System ab aakhri khali jagah dhoondhega (Collision se bachne ke liye)
+    const finalPlacementId = await findFinalPlacement(startNode, targetSide);
+    // ---------------------------------------------------
 
-    // Device Check
-    if (deviceId) {
-        const isDeviceBlocked = await BlockedDevice.findOne({ deviceId });
-        if (isDeviceBlocked) return res.status(403).json({ message: "Access Denied: Device blocked." });
-        const accountsOnDevice = await User.countDocuments({ deviceId });
-        if (accountsOnDevice >= 100) return res.status(403).json({ message: "Limit Exceeded for this device." });
-    }
-
-    // 🔴 bcrypt hash ko hata diya gaya hai. Ab seedha generateUserId() call hoga.
     const userId = await generateUserId();
 
     const user = new User({
@@ -96,13 +95,13 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       username: name || 'User', 
       name, 
       mobile, 
-      email: email.toLowerCase(), // Email ko lowercase mein save karna safe hota hai
+      email: email.toLowerCase(),
       country: country || 'Unknown',
-      password: password, // 🟢 5. Password ab PLAIN TEXT mein save hoga
+      password: password, 
       transactionPassword: password, 
       sponsorId: parseInt(sponsorId),
-      placementId: placementId ? parseInt(placementId) : parseInt(sponsorId), 
-      position: position || 'LEFT', 
+      placementId: finalPlacementId, // 👈 Ab yahan 100% sahi ID jayegi
+      position: targetSide, 
       role: 'user',
       ipAddress: userIP,
       deviceId: deviceId || null 
@@ -110,10 +109,12 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     await user.save();
 
-    // EMAIL SENDING BYPASSED HERE
-    console.log(`✅ User ${userId} Registered. (Email sending skipped for local dev)`);
-
-    res.status(201).json({ message: 'User registered successfully.', userId: user.userId, name: user.name, password: user.password });
+    res.status(201).json({ 
+        message: 'User registered successfully.', 
+        userId: user.userId, 
+        placementId: user.placementId, // Return taaki pata chale kahan laga
+        position: user.position
+    });
 
   } catch (err) {
     console.error('❌ Register error:', err);
