@@ -52,29 +52,25 @@ const Dashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-1 sm:px-6 lg:px-8 py-2 sm:py-8 space-y-3 sm:space-y-6 font-sans bg-gray-50/30 min-h-screen">
       
-      {/* TOP SECTION GRID */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+      {/* 🟢 NEW LAYOUT GRID: Ye Grid Mobile aur PC dono me perfectly adjust karega */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
         
-        {/* COLUMN 1: Financial Core */}
-        <div className="col-span-1 md:col-span-2 lg:col-span-1 flex flex-col gap-3 sm:gap-6 h-full">
-           <div className="bg-white p-0.5 rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
-             {/* 🟢 Ab BalanceCard khud Context se data lega, prop ki zarurat kam hai but rehne de sakte hain */}
+        {/* 1. BALANCE CARD (PC: Top Left | Mobile: 1st) */}
+        <div className="col-span-1 lg:col-span-1 order-1 lg:order-1 h-full">
+           <div className="bg-white p-0.5 rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-full">
              <BalanceCard user={user} />
            </div>
-
-           <IncomeStats user={user} />
-           <ActionButtons setModalState={setModalState} />
         </div>
-        
-        {/* COLUMN 2: Referral */}
-        <div className="col-span-1 lg:col-span-1 h-full">
+
+        {/* 2. REFERRAL BOX (PC: Top Middle | Mobile: 4th) */}
+        <div className="col-span-1 lg:col-span-1 order-4 lg:order-2 h-full">
            <div className="bg-white h-full rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
              <ReferralBox userId={user?.userId} />
            </div>
         </div>
         
-        {/* COLUMN 3: Network Status */}
-        <div className="col-span-1 lg:col-span-1 h-full">
+        {/* 3. NETWORK STATUS (PC: Top Right | Mobile: 5th) */}
+        <div className="col-span-1 lg:col-span-1 order-5 lg:order-3 h-full">
            <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-sm border border-gray-100 h-full flex flex-col justify-between relative overflow-hidden group border-t-2 border-t-blue-500">
              
              <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-50/50 rounded-full blur-2xl group-hover:scale-110 transition-transform duration-500"></div>
@@ -122,10 +118,21 @@ const Dashboard = () => {
              
            </div>
         </div>
+
+        {/* 4. INCOME STATS (PC: Middle Row Full Width | Mobile: 2nd) */}
+        <div className="col-span-1 lg:col-span-3 order-2 lg:order-4 w-full">
+           <IncomeStats user={user} />
+        </div>
+
+        {/* 5. ACTION BUTTONS (PC: Bottom Row Full Width | Mobile: 3rd) */}
+        <div className="col-span-1 lg:col-span-3 order-3 lg:order-5 w-full">
+           <ActionButtons setModalState={setModalState} />
+        </div>
+
       </div>
 
       {/* BOTTOM SECTION: Active Package */}
-      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden border-t-2 border-t-indigo-500">
+      <div className="bg-white rounded-[2rem] shadow-sm border border-gray-100 overflow-hidden border-t-2 border-t-indigo-500 mt-3 sm:mt-6">
         <ActivePackageCard setModalState={setModalState} />
       </div>
 

@@ -117,11 +117,12 @@ function TaskCenter() {
     if (!user?.userId) return;
     setIsClaiming(true); 
     try {
-      const res = await axios.post('/api/user/claim-task', {
-        userId: user.userId 
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+   const res = await axios.post('/api/user/claim-task', {
+  userId: user.userId,
+  packageAmount: activePlayingPackage // 🟢 SIRF YEH EK LINE ADD KARNI HAI YAHAN
+}, {
+  headers: { Authorization: `Bearer ${token}` }
+});
       
     // Jab success response aaye, bas user ka global context update kar do.
       if (res.data.user) {

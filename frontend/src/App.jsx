@@ -30,6 +30,7 @@ import AllTransactions from './pages/user/AllTransactions';
 import WalletHistory from './pages/user/WalletHistory'; 
 import UserProfile from './pages/user/UserProfile'; 
 import DirectIncomeHistory from './pages/user/DirectIncomeHistory'; // Path check kar lena apne hisaab se
+import TaskHistory from './pages/user/TaskHistory';
 // Admin Pages
 import AdminPage from './pages/admin/Admin'; 
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -140,6 +141,7 @@ function App() {
           <Route path="/wallet-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><WalletHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/convert-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><ConvertHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/direct-income" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DirectIncomeHistory /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/task-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TaskHistory /></UserLayout> : <Navigate to="/login" replace />} />
           {/* 👑 ADMIN ROUTES */}
           <Route 
             path="/admin" 

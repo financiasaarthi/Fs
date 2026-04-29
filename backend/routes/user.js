@@ -8,7 +8,7 @@ const Withdrawal = require('../models/Withdrawal');
 const BinaryHistory = require('../models/BinaryHistory');
 const Deposit = require('../models/Deposit');
 const Transaction = require('../models/Transaction');
-
+const TaskHistory = require('../models/TaskHistory');
   const authMiddleware = require('../middleware/authMiddleware'); 
  
 
@@ -334,19 +334,19 @@ router.get('/my-package-history/:userId', async (req, res) => {
 // 🎯 POST /api/user/claim-task
 router.post('/claim-task', async (req, res) => {
     try {
-        const { userId } = req.body;
+        // 🔴 FIX: Yahan packageAmount ko destructure kar rahe hain
+        const { userId, packageAmount } = req.body;
 
         const user = await User.findOne({ userId: Number(userId) });
-if (!user) return res.status(400).json({ message: "User record not found." });
+        if (!user) return res.status(400).json({ message: "User record not found." });
 
-        // 🟢 NAYA FIX: User ke paas jitne bhi packages hain, sabke tasks ko jod lo
         let totalMaxTasks = 0;
         const activePkgs = user.activePackages && user.activePackages.length > 0 
             ? user.activePackages 
             : (user.currentPackage ? [user.currentPackage] : []);
 
         if (activePkgs.length === 0 || !user.isActive) {
-return res.status(400).json({ message: "You do not have an active package." });
+            return res.status(400).json({ message: "You do not have an active package." });
         }
 
         activePkgs.forEach(pkgAmount => {
@@ -355,21 +355,20 @@ return res.status(400).json({ message: "You do not have an active package." });
             }
         });
 
-        // Aapke plan ke hisaab se har task ka paisa $0.10 fix hai
         const taskRate = 0.10; 
 
-        // 🛡️ CHECK 1: Total Capping Limit Check
         if ((user.wallets.taskIncome || 0) + taskRate > user.totalCap) {
             user.isActive = false; 
             await user.save({ validateBeforeSave: false });
             return res.status(400).json({ 
-message: `Your total package limit ($${user.totalCap}) has been reached. Please purchase a new package.`            });
+                message: `Your total package limit ($${user.totalCap}) has been reached. Please purchase a new package.`            
+            });
         }
 
-        // 🛡️ CHECK 2: Daily Limit Check (Sab packages ke tasks milakar)
         if (user.dailyVideosWatched >= totalMaxTasks) {
             return res.status(400).json({ 
-message: "Your daily quota for all packages has been completed. Please return tomorrow."            });
+                message: "Your daily quota for all packages has been completed. Please return tomorrow."            
+            });
         }
 
         // 💰 INCOME CREDIT
@@ -382,6 +381,13 @@ message: "Your daily quota for all packages has been completed. Please return to
         }
 
         await user.save({ validateBeforeSave: false });
+
+        // 🔴 FIX: Yahan packageAmount use kar rahe hain history save karte waqt
+        await TaskHistory.create({
+            userId: user.userId,
+            packageName: packageAmount ? `$${packageAmount} Package` : "Daily Ad Task",
+            reward: taskRate
+        });
 
         res.status(200).json({ 
             message: `Task Completed! +$${taskRate} added. 💰`, 
@@ -396,6 +402,15 @@ message: "Your daily quota for all packages has been completed. Please return to
 
 // backend/routes/user.js ke andar check karein
 
+// 3. Usi file me sabse niche ye naya Route add kar do (History page ke liye):
+router.get('/task-history/:userId', async (req, res) => {
+  try {
+    const history = await TaskHistory.find({ userId: req.params.userId }).sort({ createdAt: -1 });
+    res.json({ history });
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching history" });
+  }
+});
 
 
 // 🔄 POST: Income Wallet to Main Wallet (Re-invest)

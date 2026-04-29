@@ -4,7 +4,7 @@ import {
   Home, PlaySquare, Users, Wallet, ArrowDownToLine, 
   Network, TrendingUp, Award, Layers, Send, Package, 
   RefreshCw, History, LayoutList, ShieldCheck, LogOut,
-  UserPlus // 🟢 NAYA FIX: Direct Income ke liye naya icon import kiya
+  UserPlus, ListVideo // 🟢 NAYA FIX: Task History ke liye naya icon
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
@@ -27,10 +27,11 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
     };
   }, [isOpen, toggleSidebar]);
 
-  // 🚀 Menu Items Array (Updated with Direct Income)
+  // 🚀 Menu Items Array (Updated with Task History)
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <Home size={20} /> },
     { name: 'Task Center', path: '/tasks', icon: <PlaySquare size={20} /> },
+    { name: 'Task History', path: '/task-history', icon: <ListVideo size={20} /> }, // 🟢 TASK HISTORY ADD KIYA
     
     // -- Team Section --
     { name: 'Direct Team', path: '/direct-team', icon: <Users size={20} /> },
@@ -40,7 +41,7 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
     // -- Business & Income Section --
     { name: 'Rank & Business', path: '/network-status', icon: <Award size={20} /> },
     { name: 'Binary History', path: '/binary-history', icon: <TrendingUp size={20} /> },
-    { name: 'Direct Income', path: '/direct-income', icon: <UserPlus size={20} /> }, // 🟢 DIRECT INCOME ADD KIYA
+    { name: 'Direct Income', path: '/direct-income', icon: <UserPlus size={20} /> },
     { name: 'Package History', path: '/package-history', icon: <Package size={20} /> },    
     
     // -- Fund Transfer Section --
@@ -85,8 +86,8 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
             
             {menuItems.map((item, index) => {
               const isActive = location.pathname === item.path;
-              // 🟢 FIX: Array ke size badhne ki wajah se index number update kiye (2, 5, 9, 11)
-              const isNewSection = index === 2 || index === 5 || index === 9 || index === 11;
+              // 🟢 FIX: Array ke size badhne ki wajah se index number wapas update kiye (3, 6, 10, 12)
+              const isNewSection = index === 3 || index === 6 || index === 10 || index === 12;
 
               return (
                 <React.Fragment key={item.name}>
