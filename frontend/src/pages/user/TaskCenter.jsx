@@ -12,15 +12,14 @@ function TaskCenter() {
   const [activePlayingPackage, setActivePlayingPackage] = useState(null);
   const [isVideoFinished, setIsVideoFinished] = useState(false);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false); // Timer control
-  const [hasStartedPlaying, setHasStartedPlaying] = useState(false); // 🆕 New state for manual play
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false); 
+  const [hasStartedPlaying, setHasStartedPlaying] = useState(false); 
   const [isClaiming, setIsClaiming] = useState(false);
 
   const [currentVideo, setCurrentVideo] = useState(null);
   const [timeLeft, setTimeLeft] = useState(15);
   const [localProgress, setLocalProgress] = useState({});
 
-  // 🟢 Success Modal States
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
   const [rewardData, setRewardData] = useState(null);
 
@@ -37,32 +36,72 @@ function TaskCenter() {
     ? [...user.activePackages].sort((a, b) => a - b) 
     : (user?.currentPackage ? [user.currentPackage] : []);
 
-  // 🔥 SMART SYNC: Using 7-Digit Numeric userId for LocalStorage
- // 🔥 REAL-TIME SYNC: Direct Database ki value se progress distribute karna (No LocalStorage)
+  // 🔥 EXACT REAL-TIME SYNC: Ab Task History check karke exact wahi bar bharega jispe click hua hai
   useEffect(() => {
-    if (user) {
-      let totalDBWatched = user.dailyVideosWatched || 0; // Backend se aayi hui total watched videos
-      let calculatedProgress = {};
+    const syncProgress = async () => {
+      if (!user) return;
 
-      // Packages ko sequence mein lagana (small to big)
+      let prog = {};
       const sortedPackages = [...activePackages].sort((a, b) => a - b);
+      sortedPackages.forEach(p => prog[p] = 0);
 
-      // Total videos ko packages mein distribute karna
-      sortedPackages.forEach(pkgPrice => {
-        const maxForPkg = packagesConfig[pkgPrice]?.maxTasks || 0;
+      try {
+        // Task History API se aaj ka exact data nikalte hain
+        const res = await axios.get(`/api/user/task-history/${user.userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         
-        if (totalDBWatched >= maxForPkg) {
-          calculatedProgress[pkgPrice] = maxForPkg;
-          totalDBWatched -= maxForPkg; // Jo use ho gaye unko minus kar do
-        } else {
-          calculatedProgress[pkgPrice] = totalDBWatched;
-          totalDBWatched = 0; // Baaki sab mein 0 jayega
-        }
-      });
+        const logs = res.data.history || [];
+        const todayStr = new Date().toDateString();
+        let historyCount = 0;
 
-      setLocalProgress(calculatedProgress);
-    }
-  }, [user?.dailyVideosWatched, user?.userId]); // Jab bhi user data update hoga, progress auto-update hogi
+        logs.forEach(log => {
+          if (new Date(log.createdAt).toDateString() === todayStr) {
+            historyCount++;
+            // Backend se aaye hue "$30 Package" me se '30' nikal kar count badhaenge
+            const match = log.packageName?.match(/\$(\d+)/);
+            if (match && match[1]) {
+              const price = Number(match[1]);
+              if (prog[price] !== undefined) prog[price]++;
+            }
+          }
+        });
+
+        // Agar DB me zyada videos hain (history update se purane videos), toh unhe bachi hui jagah me daal do
+        let missing = (user.dailyVideosWatched || 0) - historyCount;
+        if (missing > 0) {
+          sortedPackages.forEach(pkgPrice => {
+            const maxForPkg = packagesConfig[pkgPrice]?.maxTasks || 0;
+            const spaceLeft = maxForPkg - prog[pkgPrice];
+            if (spaceLeft > 0 && missing > 0) {
+              const toAdd = Math.min(spaceLeft, missing);
+              prog[pkgPrice] += toAdd;
+              missing -= toAdd;
+            }
+          });
+        }
+
+        setLocalProgress(prog);
+      } catch (err) {
+        console.error("Failed to sync progress from history", err);
+        // FALLBACK: Agar API fail hui toh purana Sequential system chalega
+        let totalDBWatched = user.dailyVideosWatched || 0;
+        sortedPackages.forEach(pkgPrice => {
+          const maxForPkg = packagesConfig[pkgPrice]?.maxTasks || 0;
+          if (totalDBWatched >= maxForPkg) {
+            prog[pkgPrice] = maxForPkg;
+            totalDBWatched -= maxForPkg;
+          } else {
+            prog[pkgPrice] = totalDBWatched;
+            totalDBWatched = 0;
+          }
+        });
+        setLocalProgress(prog);
+      }
+    };
+
+    syncProgress();
+  }, [user?.dailyVideosWatched, user?.userId, token]); 
 
 
   const fetchRandomVideo = async () => {
@@ -84,7 +123,6 @@ function TaskCenter() {
   // ⏱️ TIMER LOGIC
   useEffect(() => {
     let timer;
-    // Timer tabhi chalega jab isVideoPlaying true hoga
     if (isVideoPlaying && timeLeft > 0) {
       timer = setInterval(() => setTimeLeft(prev => prev - 1), 1000);
     }
@@ -95,21 +133,19 @@ function TaskCenter() {
     return () => clearInterval(timer);
   }, [isVideoPlaying, timeLeft]);
 
-  // 🟢 Step 1: Open task but DO NOT start timer yet
   const handleOpenTask = (pkgPrice) => {
     if (!currentVideo) return;
     setActivePlayingPackage(pkgPrice);
     
-    setIsVideoPlaying(false); // Timer paused
-    setHasStartedPlaying(false); // Show play overlay
+    setIsVideoPlaying(false); 
+    setHasStartedPlaying(false); 
     setIsVideoFinished(false);
     setTimeLeft(currentVideo.duration || 15);
   };
 
-  // 🟢 Step 2: User clicks actual video play overlay
   const startActualVideo = () => {
-    setHasStartedPlaying(true); // Hide overlay, show video
-    setIsVideoPlaying(true); // START TIMER NOW
+    setHasStartedPlaying(true); 
+    setIsVideoPlaying(true); 
   };
 
   // 💰 CLAIM REWARD 
@@ -117,16 +153,15 @@ function TaskCenter() {
     if (!user?.userId) return;
     setIsClaiming(true); 
     try {
-   const res = await axios.post('/api/user/claim-task', {
-  userId: user.userId,
-  packageAmount: activePlayingPackage // 🟢 SIRF YEH EK LINE ADD KARNI HAI YAHAN
-}, {
-  headers: { Authorization: `Bearer ${token}` }
-});
+      const res = await axios.post('/api/user/claim-task', {
+        userId: user.userId,
+        packageAmount: activePlayingPackage // 🟢 Backend ko exactly ye bhej rahe hain ki kispe click kiya tha
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       
-    // Jab success response aaye, bas user ka global context update kar do.
       if (res.data.user) {
-        updateUser(res.data.user); // Isse automatically upar wala useEffect trigger hoga aur progress update ho jayegi!
+        updateUser(res.data.user); // 🟢 Ye update auto-progress refresh kar dega
       }
       
       setRewardData({
@@ -156,16 +191,11 @@ function TaskCenter() {
     if (!url) return "";
     let embedUrl = url;
     
-    // Normal YouTube link
     if (url.includes("watch?v=")) {
       embedUrl = url.replace("watch?v=", "embed/");
-    } 
-    // Shorts link
-    else if (url.includes("/shorts/")) {
+    } else if (url.includes("/shorts/")) {
       embedUrl = url.replace("/shorts/", "/embed/");
-    } 
-    // youtu.be short link
-    else if (url.includes("youtu.be/")) {
+    } else if (url.includes("youtu.be/")) {
       const id = url.split("youtu.be/")[1]?.split("?")[0];
       embedUrl = `https://www.youtube.com/embed/${id}`;
     }
@@ -173,12 +203,10 @@ function TaskCenter() {
     return embedUrl;
   };
   
-  // 🔥 Autoplay fix: Added mute=1 so it forces autoplay on mobile when overlay is clicked
   const finalUrl = isYouTube 
     ? `${getYouTubeEmbed(currentVideo?.url)}${getYouTubeEmbed(currentVideo?.url).includes('?') ? '&' : '?'}autoplay=1&mute=1&playsinline=1` 
     : currentVideo?.url;
   
-  // 🔗 SHARE LOGIC
   const shareUrl = currentVideo?.url || window.location.origin;
   const rawShareMessage = currentVideo?.shareMessage || "Check out this amazing video I found while completing my tasks!";
   const encodedMessage = encodeURIComponent(rawShareMessage);
@@ -193,7 +221,6 @@ function TaskCenter() {
   const renderVideoArea = () => (
     <div className="mt-6 animate-in fade-in duration-500">
       
-      {/* ⏱️ TIMER DISPLAY MOVED OUTSIDE & ABOVE VIDEO */}
       {isVideoPlaying && hasStartedPlaying && !isVideoFinished && (
         <div className="mb-4 bg-red-600 text-white px-6 py-3 rounded-2xl flex items-center justify-center shadow-lg font-black tracking-[0.2em] animate-pulse border-2 border-red-500/50 w-max mx-auto">
           <Timer className="mr-3" size={24} /> 
@@ -201,10 +228,8 @@ function TaskCenter() {
         </div>
       )}
 
-      {/* 🎬 Video Player - Mobile size aur Shorts ke hisaab se dynamically adjust */}
       <div className={`relative w-full ${isShorts ? 'aspect-[9/16] max-w-sm mx-auto' : 'aspect-video min-h-[250px] md:min-h-[350px]'} bg-black rounded-[2rem] overflow-hidden shadow-2xl border-[4px] border-gray-900 flex items-center justify-center group`}>
         
-        {/* 🛑 MANUAL PLAY OVERLAY (Timer will NOT start until this is clicked) */}
         {!hasStartedPlaying && !isVideoFinished && (
           <div 
             onClick={startActualVideo} 
@@ -219,7 +244,6 @@ function TaskCenter() {
           </div>
         )}
 
-        {/* 🎥 IFRAME (Only loads AFTER user clicks overlay) */}
         {hasStartedPlaying && (
           isYouTube ? (
             <iframe src={finalUrl} className="w-full h-full" allow="autoplay; encrypted-media" allowFullScreen />
@@ -229,11 +253,9 @@ function TaskCenter() {
         )}
       </div>
 
-      {/* 📱 Social Share Buttons */}
       <div className="flex flex-wrap items-center justify-center gap-3 mt-6">
         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest w-full text-center mb-1">Share To Earn More Referrals</p>
         
-        {/* WhatsApp Share */}
         <a 
           href={`https://api.whatsapp.com/send?text=${encodedMessage}%20${encodedUrl}`} 
           target="_blank" rel="noreferrer"
@@ -243,7 +265,6 @@ function TaskCenter() {
           WhatsApp
         </a>
         
-        {/* Facebook Share */}
         <a 
           href={`https://www.facebook.com/sharer/sharer.php?u=${encodedUrl}`} 
           target="_blank" rel="noreferrer"
@@ -253,7 +274,6 @@ function TaskCenter() {
           Facebook
         </a>
 
-        {/* Telegram Share */}
         <a 
           href={`https://t.me/share/url?url=${encodedUrl}&text=${encodedMessage}`} 
           target="_blank" rel="noreferrer"
@@ -263,7 +283,6 @@ function TaskCenter() {
           Telegram
         </a>
 
-        {/* Instagram Share */}
         <button 
           onClick={handleInstagramShare}
           className="flex items-center gap-2 bg-gradient-to-r from-[#f9ce34] via-[#ee2a7b] to-[#6228d7] hover:opacity-90 text-white px-4 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 shadow-md"
@@ -274,7 +293,6 @@ function TaskCenter() {
 
       </div>
 
-      {/* 💰 Claim Button Section */}
       {isVideoFinished && (
         <div className="mt-8 text-center animate-in zoom-in duration-300 p-8 bg-gradient-to-b from-green-50 to-white rounded-[2rem] border-2 border-green-200 shadow-xl relative overflow-hidden">
           <div className="absolute -top-10 -right-10 w-32 h-32 bg-green-400/20 blur-3xl rounded-full"></div>
@@ -305,7 +323,6 @@ function TaskCenter() {
     <>
       <div className="max-w-4xl mx-auto space-y-6 px-2 md:px-0 py-6">
         
-        {/* Header */}
         <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-gray-100 mb-8 border-l-4 border-l-indigo-600 flex items-center gap-4">
           <div className="bg-indigo-50 p-4 rounded-2xl text-indigo-600">
              <PlayCircle size={32} />
@@ -380,7 +397,6 @@ function TaskCenter() {
         })}
       </div>
 
-      {/* 🟢 PREMIUM REWARD MODAL */}
       <SuccessModal
         isOpen={isSuccessOpen}
         title="Reward Unlocked!"

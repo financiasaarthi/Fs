@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
+import api from '../api/axios'; // 🟢 FIX: Backend API call ke liye Axios zaroori hai
 import { Package, PlayCircle, AlertCircle, CheckCircle, ArrowRight, Zap } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-// 🟢 FIX: AuthContext se user data connect kiya
 import { useAuth } from '../context/AuthContext'; 
 
 const ActivePackageCard = ({ setModalState }) => {
   const navigate = useNavigate();
-  const { user } = useAuth(); 
+  const { user, token } = useAuth(); // token nikala API ke liye
   const [localProgress, setLocalProgress] = useState({});
 
   // Packages ki jankari
@@ -18,40 +18,76 @@ const ActivePackageCard = ({ setModalState }) => {
     500: { name: 'VIP Plan', tasks: 50 }
   };
 
-  /**
-   * 🟢 MULTI-PACKAGE LOGIC:
-   * Agar user ke paas 'activePackages' array hai toh usey sort karke dikhayenge.
-   * Agar nahi hai toh 'currentPackage' ko array mein convert karke dikhayenge.
-   */
   const activePackages = user?.activePackages && user.activePackages.length > 0
-      ? [...new Set(user.activePackages)].sort((a, b) => a - b) // Duplicate hatane ke liye Set use kiya
+      ? [...new Set(user.activePackages)].sort((a, b) => a - b) 
       : user?.currentPackage ? [user.currentPackage] : [];
 
-useEffect(() => {
-    // 🔥 REAL-TIME SYNC: LocalStorage hata diya, direct database ki value se calculate karenge
-    if (user) {
-      let totalDBWatched = user.dailyVideosWatched || 0;
-      let calculatedProgress = {};
+  // 🔥 EXACT REAL-TIME SYNC FROM HISTORY (Matched with TaskCenter logic)
+  useEffect(() => {
+    const syncProgress = async () => {
+      if (!user) return;
 
-      // Packages ko sequence mein lagana (small to big)
+      let prog = {};
       const sortedPackages = [...activePackages].sort((a, b) => a - b);
+      sortedPackages.forEach(p => prog[p] = 0);
 
-      sortedPackages.forEach(pkgPrice => {
-        // Dhyaan dein: is file mein 'tasks' naam ki key hai, 'maxTasks' nahi
-        const maxForPkg = packagesConfig[pkgPrice]?.tasks || 0; 
+      try {
+        // Task History API se aaj ka exact data nikalte hain
+        const res = await api.get(`/user/task-history/${user.userId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         
-        if (totalDBWatched >= maxForPkg) {
-          calculatedProgress[pkgPrice] = maxForPkg;
-          totalDBWatched -= maxForPkg; // Jo use ho gaye unko minus kar do
-        } else {
-          calculatedProgress[pkgPrice] = totalDBWatched;
-          totalDBWatched = 0; // Baaki sab mein 0 jayega
-        }
-      });
+        const logs = res.data.history || [];
+        const todayStr = new Date().toDateString();
+        let historyCount = 0;
 
-      setLocalProgress(calculatedProgress);
-    }
-  }, [user?.dailyVideosWatched, user?.userId]); // Jab value backend se update hogi, ye auto refresh hoga
+        logs.forEach(log => {
+          if (new Date(log.createdAt).toDateString() === todayStr) {
+            historyCount++;
+            // Backend se aaye hue "$30 Package" me se '30' nikal kar count badhaenge
+            const match = log.packageName?.match(/\$(\d+)/);
+            if (match && match[1]) {
+              const price = Number(match[1]);
+              if (prog[price] !== undefined) prog[price]++;
+            }
+          }
+        });
+
+        // Agar DB me zyada videos hain (history update se pehle ke), toh unhe bachi hui jagah me daal do
+        let missing = (user.dailyVideosWatched || 0) - historyCount;
+        if (missing > 0) {
+          sortedPackages.forEach(pkgPrice => {
+            const maxForPkg = packagesConfig[pkgPrice]?.tasks || 0;
+            const spaceLeft = maxForPkg - prog[pkgPrice];
+            if (spaceLeft > 0 && missing > 0) {
+              const toAdd = Math.min(spaceLeft, missing);
+              prog[pkgPrice] += toAdd;
+              missing -= toAdd;
+            }
+          });
+        }
+
+        setLocalProgress(prog);
+      } catch (err) {
+        console.error("Failed to sync progress from history in dashboard", err);
+        // FALLBACK: Agar API fail hui toh purana Sequential system chalega
+        let totalDBWatched = user.dailyVideosWatched || 0;
+        sortedPackages.forEach(pkgPrice => {
+          const maxForPkg = packagesConfig[pkgPrice]?.tasks || 0;
+          if (totalDBWatched >= maxForPkg) {
+            prog[pkgPrice] = maxForPkg;
+            totalDBWatched -= maxForPkg;
+          } else {
+            prog[pkgPrice] = totalDBWatched;
+            totalDBWatched = 0;
+          }
+        });
+        setLocalProgress(prog);
+      }
+    };
+
+    syncProgress();
+  }, [user?.dailyVideosWatched, user?.userId, token]); 
 
   
   // 🔴 AGAR KOI PACKAGE NAHI HAI (Empty State)
