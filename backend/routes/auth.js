@@ -22,7 +22,7 @@ const Otp = require('../models/Otp');
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 // Auto-Switch for Local and Live Server
 const FRONTEND_URL = process.env.FRONTEND_URL 
-    || (process.env.NODE_ENV === 'production' ? 'https://financilasaarthi.live' : 'http://localhost:5173');
+    || (process.env.NODE_ENV === 'production' ? 'https://financialsaarthi.live' : 'http://localhost:5173');
 // 🟢 PACKAGE CONFIGURATION
 const packages = {
   10: { dailyTasks: 2, taskRate: 0.1, dailyIncome: 0.2, maxEarning: 20 },
