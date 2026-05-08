@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   // 🟢 Basic Identity & Auth
-  userId: { type: Number, required: true, unique: true, index: true }, // 👈 Number kar diya taaki logic fast chale
+  userId: { type: Number, required: true, unique: true, index: true }, 
   username: { type: String, required: true, unique: true },
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, index: true },
@@ -12,12 +12,12 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   transactionPassword: { type: String }, 
 
-  // 🛡️ Security & Multi-Account Prevention (MISSING FIELDS ADDED)
-  ipAddress: { type: String, default: null }, // 👈 Iske bina 500 error aa raha tha
-  deviceId: { type: String, default: null },  // 👈 Device Manager ke liye zaroori
+  // 🛡️ Security & Multi-Account Prevention
+  ipAddress: { type: String, default: null }, 
+  deviceId: { type: String, default: null },  
   telegramId: { type: String, default: null },
   isTelegramJoined: { type: Boolean, default: false },
-  isBlocked: { type: Boolean, default: false }, // 👈 User ban karne ke liye
+  isBlocked: { type: Boolean, default: false }, 
 
   // 🟢 MLM Network Fields
   sponsorId: { type: Number, required: true, index: true },
@@ -51,13 +51,23 @@ const userSchema = new mongoose.Schema({
   taskCompletedToday: { type: Boolean, default: false },
   lastTaskDate: { type: Date, default: null },
   
-  // 🟢 Income Wallets
+  // 🟢 Income Wallets (🔥 YAHAN CHANGES KIYE HAIN 🔥)
   wallets: {
+    // 🔴 1. WITHDRAWABLE BALANCES (Ye minus hote hain withdrawal par)
     taskIncome: { type: Number, default: 0 },
     directIncome: { type: Number, default: 0 },
     matchingIncome: { type: Number, default: 0 },
     rankReward: { type: Number, default: 0 },
     royaltyIncome: { type: Number, default: 0 },
+    
+    // 🟢 2. LIFETIME TOTAL BALANCES (Ye KABHI minus nahi hote, Dashboard inko dikhayega)
+    totalTaskIncome: { type: Number, default: 0 },
+    totalDirectIncome: { type: Number, default: 0 },
+    totalMatchingIncome: { type: Number, default: 0 },
+    totalRankReward: { type: Number, default: 0 },
+    totalRoyaltyIncome: { type: Number, default: 0 },
+
+    // Overall Tracking
     totalEarned: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 } 
   },
@@ -75,9 +85,9 @@ const userSchema = new mongoose.Schema({
   salaryMonthsRemaining: { type: Number, default: 0 }
 }, { timestamps: true });
 
-// 🔥 PERFORMANCE INDEXES (2000 Users ke liye zaruri)
+// 🔥 PERFORMANCE INDEXES
 userSchema.index({ ipAddress: 1 });
 userSchema.index({ deviceId: 1 });
-userSchema.index({ sponsorId: 1, createdAt: -1 }); // Tree loading fast karne ke liye
+userSchema.index({ sponsorId: 1, createdAt: -1 }); 
 
 module.exports = mongoose.model('User', userSchema);

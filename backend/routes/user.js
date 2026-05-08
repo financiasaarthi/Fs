@@ -11,7 +11,7 @@ const Transaction = require('../models/Transaction');
 const TaskHistory = require('../models/TaskHistory');
   const authMiddleware = require('../middleware/authMiddleware'); 
  
-
+const { creditIncome } = require('../utils/incomeHelper');
  const auth = require('../middleware/auth');
 
 // 🎯 POST /api/user/claim-task (With Capping Logic)
@@ -102,6 +102,7 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
                 parent.todayBinaryIncome += binaryIncome;
                 parent.wallets.matchingIncome += binaryIncome;
                 parent.wallets.totalEarned += binaryIncome;
+                parent.wallets.totalMatchingIncome = (parent.wallets.totalMatchingIncome || 0) + binaryIncome;
                 parent.binaryBusiness.totalPairsMatched += 1;
 
                 if (binaryIncome > 0) {
@@ -125,6 +126,7 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
                         parent.currentRank = rank.name;
                         parent.wallets.rankReward = (parent.wallets.rankReward || 0) + rank.reward;
                         parent.wallets.totalEarned += rank.reward;
+                        parent.wallets.totalRankReward = (parent.wallets.totalRankReward || 0) + rank.reward;
 
                         await Transaction.create({
                             userId: parent.userId, amount: rank.reward, type: 'RANK_REWARD',
@@ -167,6 +169,63 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
 // 🔍 GET /api/user/check-status/:userId (Verify karne ke liye)
 
 
+// ==========================================
+// 🛠️ DATA RECOVERY SCRIPT FOR OLD USERS
+// Isko sirf 1 baar run karna hai
+// ==========================================
+router.get('/fix-missing-income', async (req, res) => {
+    try {
+        console.log("Starting Data Recovery for Old Users...");
+
+        // Saare users ko database se nikaalo
+        const users = await User.find({});
+        let fixedCount = 0;
+
+        for (let user of users) {
+            // 1. Calculate Total Direct Income from History
+            const directTx = await Transaction.find({ userId: user.userId, type: 'DIRECT_INCOME' });
+            const totalDirect = directTx.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+            // 2. Calculate Total Matching / Binary Income from History
+            const binaryTx = await Transaction.find({ userId: user.userId, type: 'BINARY_INCOME' });
+            const totalBinary = binaryTx.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+            // 3. Calculate Total Rank Reward from History
+            const rankTx = await Transaction.find({ userId: user.userId, type: 'RANK_REWARD' });
+            const totalRank = rankTx.reduce((sum, tx) => sum + (tx.amount || 0), 0);
+
+            // 4. Calculate Total Task Income from Task History
+            const taskTx = await TaskHistory.find({ userId: user.userId });
+            const totalTask = taskTx.reduce((sum, tx) => sum + (tx.reward || 0), 0);
+
+            // Agar user ke paas wallets object nahi hai toh bana do
+            if (!user.wallets) user.wallets = {};
+
+            // 5. Nayi 'Lifetime Total' fields mein asli lifetime data daal do
+            user.wallets.totalDirectIncome = totalDirect;
+            user.wallets.totalMatchingIncome = totalBinary;
+            user.wallets.totalRankReward = totalRank;
+            user.wallets.totalTaskIncome = totalTask;
+
+            // 6. Subka Total kar do taaki 'Total Earned' ekdum accurate ho
+            user.wallets.totalEarned = totalDirect + totalBinary + totalRank + totalTask;
+
+            // Save the user data without validation errors
+            await user.save({ validateBeforeSave: false });
+            fixedCount++;
+        }
+
+        console.log(`✅ Recovery Successful! Fixed ${fixedCount} users.`);
+        res.status(200).json({ 
+            message: "Success! Puraane sabhi users ki missing income history se recover ho gayi hai.",
+            totalUsersFixed: fixedCount
+        });
+
+    } catch (error) {
+        console.error("Recovery Script Error:", error);
+        res.status(500).json({ message: "Error running recovery script", error: error.message });
+    }
+});
 
 // 📦 POST /api/user/buy-package-for-user
 // 📦 POST /api/user/buy-package-for-user
@@ -213,12 +272,21 @@ router.post('/buy-package-for-user', async (req, res) => {
         targetUser.totalCap = (targetUser.totalCap || 0) + newCap; 
 
         // 3. 💰 DIRECT INCOME LOGIC
+      // 3. 💰 DIRECT INCOME LOGIC
         const sponsor = await User.findOne({ userId: targetUser.sponsorId });
         if (sponsor && sponsor.isActive) { 
             const directIncome = amount * 0.10; 
+            
+            // 1. Withdrawable wallet mein add kiya
             sponsor.wallets.directIncome = (sponsor.wallets.directIncome || 0) + directIncome;
+            
+            // 🟢 2. YAHAN FIX KIYA: Lifetime Total Direct Income mein add kiya (Dashboard ke liye)
+            sponsor.wallets.totalDirectIncome = (sponsor.wallets.totalDirectIncome || 0) + directIncome;
+            
+            // 3. Total Earned mein add kiya
             sponsor.wallets.totalEarned = (sponsor.wallets.totalEarned || 0) + directIncome;
-            await sponsor.save({ validateBeforeSave: false }); 
+            
+            await sponsor.save({ validateBeforeSave: false });
 
             // 📝 HISTORY 1: SPONSOR DIRECT INCOME
             await Transaction.create({
@@ -375,6 +443,7 @@ router.post('/claim-task', async (req, res) => {
         user.wallets.taskIncome = (user.wallets.taskIncome || 0) + taskRate;
         user.wallets.totalEarned = (user.wallets.totalEarned || 0) + taskRate;
         user.dailyVideosWatched += 1;
+        user.wallets.totalTaskIncome = (user.wallets.totalTaskIncome || 0) + taskRate;
 
         if (user.dailyVideosWatched >= totalMaxTasks) {
             user.taskCompletedToday = true;

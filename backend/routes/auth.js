@@ -3,12 +3,11 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const bcrypt = require('bcryptjs');
+// const bcrypt = require('bcryptjs'); // You disabled this for plain text
 
 const User = require('../models/User');
 const Setting = require('../models/Setting'); 
 const sanitizeUser = require('../utils/sanitizeUser');
-// const sendEmail = require('../utils/sendEmail'); // 🔴 EMAIL IMPORT BAND KIYA
 const checkFeature = require('../middleware/checkFeatureEnabled');
 const DummyUser = require('../models/DummyUser.js');
 const LoginHistory = require('../models/LoginHistory'); 
@@ -16,8 +15,32 @@ const IpRule = require('../models/IpRule');
 const BlockedDevice = require('../models/BlockedDevice'); 
 const { bot } = require('../utils/telegramBot');
 
+// 🔥 NEW IMPORTS FOR OTP AND EMAIL
+const nodemailer = require('nodemailer');
+const Otp = require('../models/Otp');
+
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+
+// 🟢 PACKAGE CONFIGURATION
+const packages = {
+  10: { dailyTasks: 2, taskRate: 0.1, dailyIncome: 0.2, maxEarning: 20 },
+  30: { dailyTasks: 6, taskRate: 0.1, dailyIncome: 0.6, maxEarning: 75 },
+  50: { dailyTasks: 10, taskRate: 0.1, dailyIncome: 1.0, maxEarning: 150 },
+  100: { dailyTasks: 20, taskRate: 0.1, dailyIncome: 2.0, maxEarning: 400 },
+  500: { dailyTasks: 50, taskRate: 0.1, dailyIncome: 5.0, maxEarning: 2500 }
+};
+
+// 🟢 NODEMAILER CONFIGURATION (NAMECHEAP)
+const transporter = nodemailer.createTransport({
+  host: process.env.SMTP_HOST || 'mail.privateemail.com',
+  port: process.env.SMTP_PORT || 465,
+  secure: true, 
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS
+  }
+});
 
 const getClientIP = (req) => {
     let ip = req.headers['x-forwarded-for']?.split(',')[0].trim() || req.ip || req.connection.remoteAddress || '127.0.0.1';
@@ -37,36 +60,64 @@ const generateUserId = async () => {
   return id;
 };
 
-// ====================== REGISTER ======================
-// 🟢 HELPER: Khali jagah dhoondne ka logic (Spillover)
 const findFinalPlacement = async (parentId, side) => {
-    // Check karo kya is parent ke niche ye side occupied hai?
     const child = await User.findOne({ placementId: parentId, position: side }).select('userId');
-    
-    if (!child) {
-        // Agar jagah khali hai, toh yahi final placement ID hai
-        return parentId;
-    }
-    // Agar jagah bhari hai, toh uske niche wale ke paas jao aur check karo
+    if (!child) return parentId;
     return await findFinalPlacement(child.userId, side);
 };
 
+// ====================== SEND OTP ROUTE ======================
+router.post('/send-otp', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ message: 'Email is required.' });
+
+    // Duplicate Check
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
+    if (existingUser) return res.status(400).json({ message: 'Email already registered.' });
+
+    // Generate 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Save/Update OTP in DB
+    await Otp.findOneAndDelete({ email: email.toLowerCase() });
+    await new Otp({ email: email.toLowerCase(), otp }).save();
+
+    // Send Email
+    const mailOptions = {
+      from: `"FinSaarthi Support" <${process.env.EMAIL_USER}>`,
+      to: email.toLowerCase(),
+      subject: 'Your Registration OTP - FinSaarthi',
+      html: `<h3>Welcome to FinSaarthi!</h3>
+             <p>Your OTP for registration is: <strong style="font-size: 24px;">${otp}</strong></p>
+             <p>This OTP is valid for 5 minutes. Do not share it with anyone.</p>`
+    };
+
+    await transporter.sendMail(mailOptions);
+    res.status(200).json({ message: 'OTP sent successfully to your email.' });
+
+  } catch (error) {
+    console.error('OTP Error:', error);
+    res.status(500).json({ message: 'Failed to send OTP.' });
+  }
+});
+
+// ====================== REGISTER ======================
 router.post('/register', checkFeature('allowRegistrations'), async (req, res) => {
   try {
-    const { name, mobile, email, country, password, confirmPassword, sponsorId, deviceId, position, placementId } = req.body;
+    const { name, mobile, email, country, password, confirmPassword, sponsorId, deviceId, position, placementId, otp } = req.body;
     const userIP = getClientIP(req);
 
-    // 1. Basic Validations
     const settings = await Setting.findOne() || { allowRegistrations: true }; 
     if (!settings.allowRegistrations) return res.status(400).json({ message: "Registration is closed." });
 
+    if (!otp) return res.status(400).json({ message: "OTP is required!" });
     if (password !== confirmPassword) return res.status(400).json({ message: "Password does not match!" });
-
-    if (!email || !email.toLowerCase().endsWith('@gmail.com')) {
-        return res.status(400).json({ message: 'Only @gmail.com accepted.' });
-    }
-    
     if (!sponsorId) return res.status(400).json({ message: 'Sponsor ID is compulsory.' });
+
+    // 1. Verify OTP
+    const validOtp = await Otp.findOne({ email: email.toLowerCase(), otp });
+    if (!validOtp) return res.status(400).json({ message: "Invalid or Expired OTP!" });
 
     // 2. Sponsor Check
     let sponsorExists = await User.findOne({ userId: parseInt(sponsorId) });
@@ -75,21 +126,16 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     // 3. Duplicate Check
     const existingUser = await User.findOne({ $or: [{ email: email.toLowerCase() }, { mobile: mobile }] });
-    if (existingUser) {
-        return res.status(400).json({ message: 'Email or Mobile already registered.' });
-    }
+    if (existingUser) return res.status(400).json({ message: 'Email or Mobile already registered.' });
 
-    // --- 🔥 ASLI MAGIC: AUTO-SPILLOVER LOGIC YAHAN HAI ---
+    // 4. Auto-Spillover Logic
     const targetSide = position || 'LEFT';
-    // Agar placementId di hai toh wahan se start karo, nahi toh sponsorId se
     const startNode = placementId ? parseInt(placementId) : parseInt(sponsorId);
-    
-    // System ab aakhri khali jagah dhoondhega (Collision se bachne ke liye)
     const finalPlacementId = await findFinalPlacement(startNode, targetSide);
-    // ---------------------------------------------------
 
     const userId = await generateUserId();
 
+    // 5. Create User WITH $10 FREE PACKAGE (Fixed for Frontend Dashboard)
     const user = new User({
       userId, 
       username: name || 'User', 
@@ -100,20 +146,40 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       password: password, 
       transactionPassword: password, 
       sponsorId: parseInt(sponsorId),
-      placementId: finalPlacementId, // 👈 Ab yahan 100% sahi ID jayegi
+      placementId: finalPlacementId, 
       position: targetSide, 
       role: 'user',
       ipAddress: userIP,
-      deviceId: deviceId || null 
+      deviceId: deviceId || null,
+
+      // 🔥 ASLI FIX: Frontend dashboard yahan se read karta hai active packages ko
+      isActive: true,
+      activePackages: [10],               // Array mein $10 add kiya
+      currentPackage: 10,                 // Current package $10 set kiya
+      totalCap: 20,                       // 10 * 2 = 20 Capping limit
+      activationDate: new Date(),
+      
+      // Ye purani details bhi safe rakhi hain
+      packageAmount: 10,
+      dailyIncome: packages[10].dailyIncome,
+      totalTasksAvailable: packages[10].dailyTasks,
+      maxEarningLimit: packages[10].maxEarning
     });
+
+    // NOTE: Yahan humne koi Transaction record ya `updateUplineBusiness` (Matching) 
+    // run nahi kiya hai. Toh free package par upline ko volume ya income nahi jayegi.
 
     await user.save();
 
+    // 6. Delete OTP after use
+    await Otp.deleteOne({ _id: validOtp._id });
+
     res.status(201).json({ 
-        message: 'User registered successfully.', 
+        message: 'User registered successfully. $10 Package Activated!', 
         userId: user.userId, 
-        placementId: user.placementId, // Return taaki pata chale kahan laga
-        position: user.position
+        placementId: user.placementId, 
+        position: user.position,
+        package: 10
     });
 
   } catch (err) {
@@ -128,11 +194,9 @@ router.post('/login', async (req, res) => {
     const { userId, password, deviceId } = req.body;
     const userIP = getClientIP(req);
 
-    // 1. User dhoondho
     const user = await User.findOne({ userId });
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
 
-    // 2. Security Checks (IP aur Role check)
     if (user.role !== 'admin') {
         const isLocalIP = userIP === '127.0.0.1' || userIP === '::1';
         if (!isLocalIP) {
@@ -148,38 +212,30 @@ router.post('/login', async (req, res) => {
         }
     }
 
-    // 3. Device Block Check
     if (deviceId) {
         const isDeviceBlocked = await BlockedDevice.findOne({ deviceId });
         if (isDeviceBlocked) return res.status(403).json({ message: "Device Blocked." });        
     }
 
-    // 4. Maintenance/Login Disable Check
     const settings = await Setting.findOne();
     if (settings) {
         if (settings.maintenanceMode && user.role !== 'admin') return res.status(503).json({ message: 'Maintenance Mode.' });
         if (!settings.allowLogin && user.role !== 'admin') return res.status(403).json({ message: 'Login is disabled.' });
     }
 
-    // 🟢 FIX 1: Plain Password Comparison
-    // Ab bcrypt use nahi hoga, seedha string match hoga
+    // Plain text comparison
     if (user.password !== password) {
         return res.status(401).json({ message: 'Invalid credentials' });
     }
 
-    // 5. Account Block Check
     if (user.isBlocked) return res.status(403).json({ message: 'Account blocked.' });
 
-    // 6. User Login Info Update
     user.ipAddress = userIP; 
     if (deviceId) user.deviceId = deviceId;
     await user.save();
 
-    // 🟢 FIX 2: Token Expiry (15m se badha kar 30 days kar diya)
-    // Isse baar-baar logout hone wali problem khatam ho jayegi
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '30d' });
 
-    // 7. Login History Create
     try { 
         await LoginHistory.create({ 
             userId: user.userId, 
@@ -191,12 +247,7 @@ router.post('/login', async (req, res) => {
         console.log("Login history log error");
     }
 
-    // 8. Final Response
-    res.json({ 
-        message: 'Login successful', 
-        token, 
-        user: sanitizeUser(user) 
-    });
+    res.json({ message: 'Login successful', token, user: sanitizeUser(user) });
 
   } catch (err) {
     console.error("Login Error:", err);
@@ -213,26 +264,19 @@ router.post('/forgot-password', checkFeature(), async (req, res) => {
 
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour
+    user.resetTokenExpiry = Date.now() + 3600000;
     await user.save();
 
     const resetLink = `${FRONTEND_URL}/reset-password/${resetToken}`;
-
-    // 🔴 EMAIL SENDING BYPASSED HERE
     console.log(`🔐 Password Reset Link for ${userId}: ${resetLink}`);
 
-    // 🟢 MAZEDAR CHEEZ: Hum link directly response me bhej rahe hain testing ke liye!
-    res.json({ 
-        message: 'Password reset link generated (Check Console or below data)', 
-        testLink: resetLink // Use this link in your browser to test
-    });
+    res.json({ message: 'Password reset link generated', testLink: resetLink });
   } catch (err) {
     console.error('Forgot password error:', err);
     res.status(500).json({ message: 'Server error.' });
   }
 });
 
-// ====================== RESET PASSWORD ======================
 // ====================== RESET PASSWORD ======================
 router.post('/reset-password/:token', async (req, res) => {
   const { token } = req.params;
@@ -246,21 +290,14 @@ router.post('/reset-password/:token', async (req, res) => {
 
     if (!user) return res.status(400).json({ message: 'Invalid or expired token.' });
 
-    // 🟢 FIX: Ab password bina hash kiye directly save hoga (Plain Text)
     user.password = newPassword;
     user.transactionPassword = newPassword; 
     user.resetToken = undefined;
     user.resetTokenExpiry = undefined;
-
     await user.save();
 
     console.log(`✅ Password successfully reset for user ${user.userId}`);
-
-    res.json({
-      message: 'Password reset successful',
-      userId: user.userId,
-      password: newPassword, 
-    });
+    res.json({ message: 'Password reset successful', userId: user.userId, password: newPassword });
 
   } catch (err) {
     console.error(err);

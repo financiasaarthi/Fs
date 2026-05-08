@@ -1,12 +1,12 @@
 import React from 'react';
-// 🟢 FIX 1: Award icon import kiya Reward card ke liye
 import { DollarSign, Zap, Users, TrendingUp, Package, Award } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
 const IncomeStats = () => {
   const { user } = useAuth();
 
-  // 📊 Stats array ko schema ke hisaab se map kiya
+  // 📊 Stats array: Ab yahan 'total...' fields fetch kiye gaye hain 
+  // taaki withdrawal ke baad amount minus na ho.
   const stats = [
     {
       name: 'Active Package',
@@ -18,7 +18,7 @@ const IncomeStats = () => {
     },
     {
       name: 'Total Earned',
-      value: user?.wallets?.totalEarned || 0,
+      value: user?.wallets?.totalEarned || 0, // Ye kabhi minus nahi hona chahiye
       icon: <DollarSign size={16} />,
       color: 'text-emerald-600',
       borderColor: 'border-t-emerald-500',
@@ -26,7 +26,8 @@ const IncomeStats = () => {
     },
     {
       name: 'Direct Bonus',
-      value: user?.wallets?.directIncome || 0,
+      // 🟢 FIX: totalDirectIncome use kiya
+      value: user?.wallets?.totalDirectIncome || user?.wallets?.directIncome || 0,
       icon: <Users size={16} />,
       color: 'text-blue-600',
       borderColor: 'border-t-blue-500',
@@ -34,7 +35,8 @@ const IncomeStats = () => {
     },
     {
       name: 'Matching Income',
-      value: user?.wallets?.matchingIncome || 0,
+      // 🟢 FIX: totalMatchingIncome use kiya
+      value: user?.wallets?.totalMatchingIncome || user?.wallets?.matchingIncome || 0,
       icon: <Zap size={16} />,
       color: 'text-purple-600',
       borderColor: 'border-t-purple-500',
@@ -42,18 +44,19 @@ const IncomeStats = () => {
     },
     {
       name: 'Task Income',
-      value: user?.wallets?.taskIncome || 0,
+      // 🟢 FIX: totalTaskIncome use kiya
+      value: user?.wallets?.totalTaskIncome || user?.wallets?.taskIncome || 0,
       icon: <TrendingUp size={16} />,
       color: 'text-orange-600',
       borderColor: 'border-t-orange-500',
       bgLight: 'bg-orange-50/50'
     },
     {
-      // 🟢 NAYA FIX: Reward Income Add Kiya
       name: 'Rank Reward Income',
-      value: user?.wallets?.rankReward || 0, // Schema se rankReward fetch kiya
+      // 🟢 FIX: totalRankReward use kiya
+      value: user?.wallets?.totalRankReward || user?.wallets?.rankReward || 0,
       icon: <Award size={16} />,
-      color: 'text-rose-600', // Premium rose color diya hai alag dikhne ke liye
+      color: 'text-rose-600',
       borderColor: 'border-t-rose-500',
       bgLight: 'bg-rose-50/50'
     }
@@ -61,7 +64,6 @@ const IncomeStats = () => {
 
   return (
     <div className="w-full">
-      {/* 🟢 FIX 2: lg:grid-cols-5 ko lg:grid-cols-6 kiya taaki 6 cards fit aa jayein */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
         {stats.map((item, index) => (
           <div 
