@@ -770,13 +770,20 @@ router.get('/package-history/:userId', async (req, res) => {
 });
  
 // 6. Deposit History Route
+// 🟢 DEPOSIT HISTORY ROUTE (Fixed Number Mismatch)
 router.get('/deposit-history/:userId', async (req, res) => {
     try {
         const { userId } = req.params;
-        // User ki 7-digit ID se dhoondhna
-        const history = await Deposit.find({ userId: userId }).sort({ createdAt: -1 });
         
-        // Agar history na ho toh 404 nahi, khali array bhejni chahiye
+        // 🟢 FIX 1: URL se aane wala userId String hota hai, usko Number me convert karna zaroori hai
+        const numericUserId = Number(userId);
+
+        if (isNaN(numericUserId)) {
+            return res.status(400).json({ message: "Invalid User ID" });
+        }
+
+        const history = await Deposit.find({ userId: numericUserId }).sort({ createdAt: -1 });
+        
         res.status(200).json(history || []); 
     } catch (err) {
         console.error("Deposit History Error:", err);

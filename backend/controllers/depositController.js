@@ -117,14 +117,15 @@ console.log(`📤 [SWEEP] Sweeping USDT to Central Wallet...`);
 
             // ✅ Deposit table me bhi record zarur banayein
             const Deposit = require("../models/Deposit");
-            await Deposit.create({
+        await Deposit.create({
                 userId: user.userId,
                 amount: amountInUSDT,
-                txnHash: actualHash, // ✅ Hash yahan bhi gaya
-                status: 'approved',
+                txHash: actualHash,   // 🟢 FIX 2: Frontend ko 'txHash' chahiye
+                txnHash: actualHash,  // Database model ke safety ke liye isko bhi rakh lo
+                status: 'completed',  // 🟢 FIX 3: Status 'completed' karna zaroori hai taaki frontend par green SUCCESS dikhe
                 createdAt: new Date()
             });
-
+            
             console.log(`✅ [SUCCESS] ${amountInUSDT} USDT swept! Hash: ${actualHash}`);
         }
 
