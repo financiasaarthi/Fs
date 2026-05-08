@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
-import { Users, Loader2, History, ArrowDownLeft, Search } from 'lucide-react';
+import { Users, Loader2, History, ArrowDownLeft, Search, Package } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
 const DirectIncomeHistory = () => {
@@ -19,11 +19,9 @@ const DirectIncomeHistory = () => {
       
       try {
         setLoading(true);
-        // Backend API call for direct income
         const res = await axios.get(`/api/user/direct-income/${user.userId}`, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        // Handle array response safely
         setHistory(Array.isArray(res.data) ? res.data : []);
       } catch (error) {
         console.error("Failed to load direct income history", error);
@@ -35,12 +33,11 @@ const DirectIncomeHistory = () => {
     fetchHistory();
   }, [user?.userId, token]);
 
-  // 🔥 TOTAL EARNINGS CALCULATION LOGIC
-  // Agar user ke wallet me value nahi hai (0 hai), toh neeche history se khud calculate kar lega
+  // 🔥 TOTAL EARNINGS FIX: Ab ye "totalDirectIncome" read karega jo kabhi minus nahi hota
   const calculatedTotal = history.reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-  const displayTotal = user?.wallets?.directIncome > 0 ? user.wallets.directIncome : calculatedTotal;
+  const displayTotal = user?.wallets?.totalDirectIncome > 0 ? user.wallets.totalDirectIncome : calculatedTotal;
 
-  // 🔥 SEARCH LOGIC (Optimized)
+  // 🔥 SEARCH LOGIC
   const filteredHistory = useMemo(() => {
     const s = searchTerm.toLowerCase();
     return history.filter(item => 
@@ -120,10 +117,11 @@ const DirectIncomeHistory = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
-                {/* 🔥 Naya Sr. No. Column Add Kiya */}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sr. No.</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">From User ID</th>
+                {/* 🟢 NAYA COLUMN ADD KIYA */}
+                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Activated Package</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Description</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Earned Amount</th>
               </tr>
@@ -131,7 +129,7 @@ const DirectIncomeHistory = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan="5" className="py-16 text-center">
+                  <td colSpan="6" className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                         <Loader2 className="animate-spin text-blue-600" size={32} />
                         <span className="text-sm font-medium text-gray-500">Loading Records...</span>
@@ -140,7 +138,7 @@ const DirectIncomeHistory = () => {
                 </tr>
               ) : currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan="5" className="py-16 text-center">
+                  <td colSpan="6" className="py-16 text-center">
                     <div className="flex flex-col items-center gap-3">
                         <History size={40} className="text-gray-300" />
                         <span className="text-sm font-medium text-gray-500">No Direct Referrals Found</span>
@@ -148,56 +146,65 @@ const DirectIncomeHistory = () => {
                   </td>
                 </tr>
               ) : (
-                currentItems.map((record, index) => (
-                  <tr key={index} className="hover:bg-blue-50/50 transition-colors">
-                    
-                    {/* 🔥 Sr. No. Value */}
-                    <td className="px-4 py-3 text-sm text-gray-500 font-medium whitespace-nowrap">
-                      {indexOfFirst + index + 1}
-                    </td>
+                currentItems.map((record, index) => {
+                  // 🟢 PACKAGE AMOUNT CALCULATION (Income is 10%, so Package = Income * 10)
+                  const packageAmt = record.packageAmount ? Number(record.packageAmount) : (Number(record.amount || 0) * 10);
 
-                    {/* Date Column */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                        <div className="flex flex-col">
-                            <span className="text-sm font-semibold text-gray-800">
-                                {new Date(record.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-                            </span>
-                            <span className="text-xs text-gray-500 font-medium mt-0.5">
-                                {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
-                            </span>
+                  return (
+                    <tr key={index} className="hover:bg-blue-50/50 transition-colors">
+                      <td className="px-4 py-3 text-sm text-gray-500 font-medium whitespace-nowrap">
+                        {indexOfFirst + index + 1}
+                      </td>
+
+                      <td className="px-4 py-3 whitespace-nowrap">
+                          <div className="flex flex-col">
+                              <span className="text-sm font-semibold text-gray-800">
+                                  {new Date(record.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                              <span className="text-xs text-gray-500 font-medium mt-0.5">
+                                  {new Date(record.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                          </div>
+                      </td>
+
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="bg-blue-100 p-1.5 rounded-md">
+                              <ArrowDownLeft size={14} className="text-blue-600" />
+                          </div>
+                          <span className="text-sm font-bold text-slate-700">
+                              ID: {record.fromUserId || "N/A"}
+                          </span>
                         </div>
-                    </td>
+                      </td>
 
-                    {/* From User Column */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                      <div className="flex items-center gap-2">
-                        <div className="bg-blue-100 p-1.5 rounded-md">
-                            <ArrowDownLeft size={14} className="text-blue-600" />
+                      {/* 🟢 NAYA PACKAGE COLUMN DATA */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1.5 bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md border border-indigo-100">
+                          <Package size={14} />
+                          <span className="text-sm font-bold">
+                              ${packageAmt.toFixed(2)}
+                          </span>
                         </div>
-                        <span className="text-sm font-bold text-blue-700">
-                            ID: {record.fromUserId || "N/A"}
-                        </span>
-                      </div>
-                    </td>
+                      </td>
 
-                    {/* Description Column */}
-                    <td className="px-4 py-3 whitespace-nowrap">
-                        <span className="text-sm font-medium text-gray-600">
-                            {record.description || "Direct referral bonus"}
-                        </span>
-                    </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="text-sm font-medium text-gray-600 truncate max-w-[200px] block">
+                              {record.description || "Direct referral bonus"}
+                          </span>
+                      </td>
 
-                    {/* Amount Column */}
-                    <td className="px-4 py-3 text-right whitespace-nowrap">
-                      <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
-                        <span className="text-sm font-bold">
-                          +${Number(record.amount || 0).toFixed(2)}
-                        </span>
-                      </div>
-                    </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
+                        <div className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg border border-emerald-100 shadow-sm">
+                          <span className="text-sm font-black">
+                            +${Number(record.amount || 0).toFixed(2)}
+                          </span>
+                        </div>
+                      </td>
 
-                  </tr>
-                ))
+                    </tr>
+                  )
+                })
               )}
             </tbody>
           </table>

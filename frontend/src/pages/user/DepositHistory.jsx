@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useMemo } from 'react';
-// 🟢 Raw axios ki jagah apne custom 'api' instance ko use karo
 import api from "../../api/axios"; 
 import { ArrowDownToLine, Search, Loader2, Link as LinkIcon, CheckCircle2, Clock, XCircle, FileText, AlertCircle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
@@ -16,7 +15,6 @@ const DepositHistory = () => {
 
   useEffect(() => {
     const fetchHistory = async () => {
-      // 🟢 Logic: Agar context se user na mile toh localStorage se try karo
       const currentUser = user || JSON.parse(localStorage.getItem("user"));
       const currentToken = token || localStorage.getItem("token");
 
@@ -24,22 +22,30 @@ const DepositHistory = () => {
 
       try {
         setLoading(true);
-        // 🟢 Path singular 'user' rakha hai consistency ke liye
         const res = await api.get(`/user/deposit-history/${currentUser.userId}`, {
             headers: { Authorization: `Bearer ${currentToken}` }
         });
         
+        // 🟢 FIX: Backend ka response safe tareeqe se handle kiya
+        let data = [];
+        if (Array.isArray(res.data)) {
+            data = res.data;
+        } else if (res.data && Array.isArray(res.data.history)) {
+            data = res.data.history;
+        } else if (res.data && Array.isArray(res.data.data)) {
+            data = res.data.data;
+        }
+
         // Sorting: Newest first
-        const data = Array.isArray(res.data) ? res.data : [];
         const sortedData = data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         
         setHistory(sortedData);
         setError("");
       } catch (err) { 
         console.error("Deposit History Error:", err); 
-        setError("Failed to sync blockchain records.");
+        setError("Failed to fetch deposit records.");
       } finally { 
-        setLoading(false); // 🟢 Spinner stop protection
+        setLoading(false); 
       }
     };
     
@@ -66,61 +72,59 @@ const DepositHistory = () => {
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
-  // 🟢 Enhanced Status Badge (Handling both lower/upper case)
+  // 🟢 Compact Status Badge
   const getStatusBadge = (status) => {
     const s = status?.toLowerCase();
-    const baseClass = "px-3 py-1.5 rounded-lg text-[9px] font-black tracking-widest flex items-center justify-center gap-1 w-fit ml-auto shadow-sm border";
+    const baseClass = "px-2.5 py-1 rounded-md text-[10px] sm:text-xs font-bold flex items-center justify-center gap-1 w-fit shadow-sm border";
     
     if (s === 'completed' || s === 'success') {
-        return <span className={`${baseClass} bg-emerald-50 text-emerald-600 border-emerald-200/50`}><CheckCircle2 size={12}/> SUCCESS</span>;
+        return <span className={`${baseClass} bg-emerald-50 text-emerald-700 border-emerald-200`}><CheckCircle2 size={14}/> SUCCESS</span>;
     }
     if (s === 'pending') {
-        return <span className={`${baseClass} bg-amber-50 text-amber-600 border-amber-200/50`}><Clock size={12}/> PENDING</span>;
+        return <span className={`${baseClass} bg-amber-50 text-amber-700 border-amber-200`}><Clock size={14}/> PENDING</span>;
     }
-    return <span className={`${baseClass} bg-red-50 text-red-600 border-red-200/50`}><XCircle size={12}/> FAILED</span>;
+    return <span className={`${baseClass} bg-red-50 text-red-700 border-red-200`}><XCircle size={14}/> FAILED</span>;
   };
 
   return (
-    <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 font-sans animate-in fade-in duration-700">
+    <div className="max-w-7xl mx-auto p-4 sm:p-6 lg:p-8 font-sans bg-gray-50 min-h-screen">
       
-      {/* 🔵 HEADER SECTION */}
-      <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-7 rounded-[2.5rem] shadow-sm border border-gray-100 border-l-4 border-l-emerald-500">
+      {/* 🔵 HEADER SECTION (Responsive & Clean) */}
+      <div className="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-200 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div className="flex items-center gap-4">
-          <div className="p-4 bg-emerald-500 rounded-2xl text-white shadow-lg shadow-emerald-100">
-            <ArrowDownToLine size={28} />
+          <div className="p-3 bg-emerald-100 rounded-xl text-emerald-600">
+            <ArrowDownToLine size={24} />
           </div>
           <div>
-            <h2 className="text-2xl font-black text-gray-800 uppercase tracking-tight">Deposit Logs</h2>
-            <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mt-1">Blockchain Transaction History</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 tracking-tight">Deposit Logs</h2>
+            <p className="text-xs font-medium text-gray-500 mt-0.5">Your Blockchain Deposit History</p>
           </div>
         </div>
         
-        <div className="flex items-center gap-6 bg-gray-50/50 px-6 py-4 rounded-3xl border border-gray-100">
-           <div>
-              <p className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Total Succeeded</p>
-              <p className="text-2xl font-black text-emerald-600">
-                  ${history.filter(h => h.status?.toLowerCase() === 'completed' || h.status?.toLowerCase() === 'success').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0).toFixed(2)}
-              </p>
-           </div>
+        <div className="bg-emerald-50 px-5 py-3 rounded-xl border border-emerald-100 w-full sm:w-auto text-left sm:text-right">
+            <p className="text-xs font-bold text-emerald-600 uppercase tracking-wide">Total Succeeded</p>
+            <p className="text-2xl font-black text-emerald-700">
+              ${history.filter(h => h.status?.toLowerCase() === 'completed' || h.status?.toLowerCase() === 'success').reduce((acc, curr) => acc + (Number(curr.amount) || 0), 0).toFixed(2)}
+            </p>
         </div>
       </div>
 
       {/* 🔍 FILTER CONTROLS */}
-      <div className="flex flex-col sm:flex-row gap-4 mb-8">
-        <div className="relative flex-1 group">
-          <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-300 group-focus-within:text-emerald-500 transition-colors" size={20} />
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="relative flex-1">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
           <input
             type="text"
             placeholder="Search by TxHash, Amount or Status..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-14 pr-6 py-4 bg-white border border-gray-100 rounded-[2rem] shadow-sm focus:ring-4 focus:ring-emerald-500/10 outline-none font-bold text-sm text-gray-700 transition-all placeholder:text-gray-300"
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-300 rounded-xl shadow-sm focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none text-sm text-gray-700 transition-all"
           />
         </div>
         <select
           value={entriesPerPage}
           onChange={(e) => { setEntriesPerPage(Number(e.target.value)); setCurrentPage(1); }}
-          className="px-8 py-4 bg-white border border-gray-100 rounded-[2rem] shadow-sm font-black text-[10px] uppercase tracking-[0.2em] outline-none cursor-pointer hover:bg-gray-50 transition-colors"
+          className="w-full sm:w-auto px-4 py-2.5 bg-white border border-gray-300 rounded-xl shadow-sm text-sm font-medium outline-none cursor-pointer hover:bg-gray-50 transition-colors"
         >
           <option value={10}>Show 10</option>
           <option value={25}>Show 25</option>
@@ -128,77 +132,83 @@ const DepositHistory = () => {
         </select>
       </div>
 
-      {/* 📋 MAIN TABLE */}
-      <div className="bg-white rounded-[3rem] shadow-xl shadow-gray-200/40 border border-gray-50 overflow-hidden">
+      {/* 📋 MAIN TABLE (Responsive Scroll) */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         {loading ? (
-          <div className="p-32 text-center flex flex-col items-center gap-4">
-             <Loader2 className="w-12 h-12 text-emerald-500 animate-spin" />
-             <p className="font-black text-gray-400 uppercase tracking-[0.3em] text-[10px]">Syncing Blockchain Records...</p>
+          <div className="p-16 text-center flex flex-col items-center gap-3">
+             <Loader2 className="w-10 h-10 text-emerald-500 animate-spin" />
+             <p className="font-medium text-gray-500 text-sm">Loading records...</p>
           </div>
         ) : error ? (
-            <div className="p-32 text-center flex flex-col items-center gap-3">
-                <AlertCircle size={40} className="text-rose-400" />
-                <p className="text-xs font-black text-gray-400 uppercase tracking-widest">{error}</p>
+            <div className="p-16 text-center flex flex-col items-center gap-2">
+                <AlertCircle size={36} className="text-red-400" />
+                <p className="text-sm font-semibold text-gray-600">{error}</p>
             </div>
         ) : (
-          <div className="overflow-x-auto custom-scroll">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-emerald-50/30">
-                  <th className="p-7 text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.2em] border-b border-emerald-100/50">Timestamp</th>
-                  <th className="p-7 text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.2em] border-b border-emerald-100/50">Transaction Hash</th>
-                  <th className="p-7 text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.2em] border-b border-emerald-100/50">Method</th>
-                  <th className="p-7 text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.2em] border-b border-emerald-100/50">Value</th>
-                  <th className="p-7 text-[10px] font-black text-emerald-800/40 uppercase tracking-[0.2em] border-b border-emerald-100/50 text-right">Confirmation</th>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-left">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Transaction Hash</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Method</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap text-right">Value</th>
+                  <th className="px-4 py-3 text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap text-center">Status</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-gray-200">
                 {currentItems.length === 0 ? (
                   <tr>
-                    <td colSpan="5" className="py-32 text-center">
-                        <div className="flex flex-col items-center gap-3 opacity-20">
-                            <FileText size={48} />
-                            <span className="font-black uppercase tracking-[0.4em] text-xs">No Records Found</span>
+                    <td colSpan="5" className="py-16 text-center">
+                        <div className="flex flex-col items-center gap-2 text-gray-400">
+                            <FileText size={40} className="opacity-50" />
+                            <span className="font-medium text-sm">No Deposit Records Found</span>
                         </div>
                     </td>
                   </tr>
                 ) : (
                   currentItems.map((item, index) => (
-                    <tr key={item._id || index} className="hover:bg-emerald-50/20 transition-all group">
-                      <td className="p-7">
+                    <tr key={item._id || index} className="hover:bg-emerald-50/30 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex flex-col">
-                           <span className="font-bold text-gray-800 text-sm">{new Date(item.createdAt).toLocaleDateString()}</span>
-                           <span className="text-[10px] font-black text-gray-400 tracking-wider uppercase">{new Date(item.createdAt).toLocaleTimeString()}</span>
+                           <span className="font-semibold text-gray-800 text-sm">{new Date(item.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                           <span className="text-xs font-medium text-gray-500">{new Date(item.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>
                       </td>
-                      <td className="p-7">
+                      
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {item.txHash ? (
-                          <div className="flex items-center gap-2 group-hover:text-blue-600 transition-colors">
+                          <div className="flex items-center gap-1.5 group">
                              <a 
                                href={`https://bscscan.com/tx/${item.txHash}`} 
                                target="_blank" rel="noreferrer"
-                               className="font-mono text-[11px] font-bold text-gray-500 hover:text-blue-600 transition-colors bg-gray-50 px-3 py-1 rounded-lg border border-gray-100"
+                               className="font-mono text-xs font-semibold text-blue-600 hover:text-blue-800 hover:underline transition-colors bg-blue-50 px-2 py-1 rounded-md border border-blue-100"
                              >
-                               {`${item.txHash.substring(0, 10)}...${item.txHash.slice(-10)}`}
+                               {`${item.txHash.substring(0, 8)}...${item.txHash.slice(-8)}`}
                              </a>
-                             <LinkIcon size={12} className="text-gray-300 group-hover:text-blue-500" />
+                             <LinkIcon size={14} className="text-gray-400 group-hover:text-blue-500" />
                           </div>
                         ) : (
-                          <span className="text-[9px] font-black text-gray-300 uppercase tracking-widest bg-gray-50 px-2 py-1 rounded">Internal Update</span>
+                          <span className="text-xs font-bold text-gray-400 bg-gray-100 px-2 py-1 rounded-md">Internal</span>
                         )}
                       </td>
-                      <td className="p-7">
-                        <span className="font-black text-[9px] text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1.5 rounded-xl uppercase tracking-[0.1em]">
-                            {item.txHash ? 'USDT (BEP-20)' : 'Manual'}
+                      
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <span className="font-bold text-xs text-indigo-700 bg-indigo-50 border border-indigo-100 px-2.5 py-1 rounded-lg">
+                            {item.txHash ? 'USDT (BEP-20)' : 'Manual Admin'}
                         </span>
                       </td>
-                      <td className="p-7">
-                        <span className="font-black text-xl text-emerald-600 tracking-tighter">
-                          +${Number(item.amount).toFixed(2)}
+                      
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <span className="font-bold text-base text-gray-900">
+                          ${Number(item.amount).toFixed(2)}
                         </span>
                       </td>
-                      <td className="p-7 text-right">
-                         {getStatusBadge(item.status || 'success')}
+                      
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                         <div className="flex justify-center">
+                            {getStatusBadge(item.status || 'success')}
+                         </div>
                       </td>
                     </tr>
                   ))
@@ -211,27 +221,25 @@ const DepositHistory = () => {
 
       {/* 📑 PAGINATION */}
       {!loading && filteredHistory.length > entriesPerPage && (
-        <div className="flex flex-col sm:flex-row justify-between items-center gap-6 mt-12 bg-white p-7 rounded-[3rem] shadow-sm border border-gray-100">
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6">
           <button 
             onClick={handlePrev} 
             disabled={currentPage === 1} 
-            className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-slate-900 text-white disabled:bg-gray-100 disabled:text-gray-300 font-black text-[10px] tracking-[0.2em] hover:bg-black transition-all active:scale-95"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            ← PREVIOUS
+            ← Previous
           </button>
-          <div className="flex items-center gap-4">
-             {Array.from({ length: Math.min(totalPages, 5) }).map((_, i) => (
-               <button key={i} onClick={() => setCurrentPage(i+1)} className={`w-8 h-8 rounded-full text-[10px] font-black ${currentPage === i+1 ? 'bg-emerald-500 text-white' : 'text-gray-400 hover:bg-gray-50'}`}>
-                 {i+1}
-               </button>
-             ))}
-          </div>
+          
+          <span className="text-sm font-medium text-gray-600">
+            Page {currentPage} of {totalPages}
+          </span>
+          
           <button 
             onClick={handleNext} 
             disabled={currentPage === totalPages} 
-            className="w-full sm:w-auto px-10 py-4 rounded-2xl bg-slate-900 text-white disabled:bg-gray-100 disabled:text-gray-300 font-black text-[10px] tracking-[0.2em] hover:bg-black transition-all active:scale-95"
+            className="w-full sm:w-auto px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            NEXT PAGE →
+            Next →
           </button>
         </div>
       )}

@@ -658,10 +658,16 @@ router.get('/find-name/:userId', async (req, res) => {
 });
 // 💸 POST /api/user/transfer
 // 💸 POST: P2P Wallet Transfer
+// 💸 POST: P2P Wallet Transfer
 router.post('/transfer', async (req, res) => {
     try {
         const { senderId, receiverId, amount, transactionPassword } = req.body;
         const transferAmount = Number(amount);
+
+        // 🟢 FIX: Minimum $10 Transfer Limit Add Kiya Hai
+        if (isNaN(transferAmount) || transferAmount < 10) {
+            return res.status(400).json({ message: "Minimum transfer amount is $10" });
+        }
 
         // 1. Strict Number Check for IDs
         const numericSenderId = Number(senderId);
