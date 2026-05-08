@@ -147,9 +147,10 @@ function App() {
           <Route path="/direct-income" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DirectIncomeHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/task-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TaskHistory /></UserLayout> : <Navigate to="/login" replace />} />
           {/* 👑 ADMIN ROUTES */}
+         {/* 👑 ADMIN ROUTES */}
           <Route 
             path="/admin" 
-            element={isAdmin ? <AdminLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} /> : <Navigate to="/admin/login" replace />}
+            element={isAdmin ? <AdminLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} /> : <Navigate to="/admin/login?key=SuperSuper" replace />}
           >
             <Route index element={<AdminPage />} /> 
             <Route path="dashboard" element={<AdminDashboard />} />

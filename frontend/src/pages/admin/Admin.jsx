@@ -20,10 +20,16 @@ const AdminDashboard = () => {
   const [withdrawals, setWithdrawals] = useState([]);
   const token = localStorage.getItem('adminToken');
 
+  // 🟢 1. Check if token exists on page load
   useEffect(() => {
+    if (!token) {
+      // 🚀 Redirect with your secret key
+      navigate('/admin/login?key=SuperSuper'); 
+      return;
+    }
     fetchDashboardData();
     fetchWithdrawals();
-  }, []);
+  }, [token, navigate]);
 
   const fetchDashboardData = async () => {
     try {
@@ -47,6 +53,12 @@ const AdminDashboard = () => {
       });
     } catch (error) {
       console.error('Error loading dashboard data:', error);
+      // 🟢 2. Check if API says Token is Expired / Invalid (401 or 403)
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        localStorage.removeItem('adminToken'); 
+        // 🚀 Redirect with your secret key
+        navigate('/admin/login?key=SuperSuper'); 
+      }
     }
   };
 
@@ -56,6 +68,12 @@ const AdminDashboard = () => {
       setWithdrawals(res.data || []);
     } catch (error) {
       console.error('Error fetching withdrawals:', error);
+      // 🟢 2. Check if API says Token is Expired / Invalid (401 or 403)
+      if (error.response && (error.response.status === 401 || error.response.status === 403)) {
+        localStorage.removeItem('adminToken');
+        // 🚀 Redirect with your secret key
+        navigate('/admin/login?key=SuperSuper'); 
+      }
     }
   };
 
