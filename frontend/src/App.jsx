@@ -31,6 +31,8 @@ import WalletHistory from './pages/user/WalletHistory';
 import UserProfile from './pages/user/UserProfile'; 
 import DirectIncomeHistory from './pages/user/DirectIncomeHistory'; // Path check kar lena apne hisaab se
 import TaskHistory from './pages/user/TaskHistory';
+import ForgotPassword from './pages/user/ForgotPassword';
+import ResetPassword from './pages/user/ResetPassword';
 // Admin Pages
 import AdminPage from './pages/admin/Admin'; 
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -120,6 +122,8 @@ function App() {
           
           {/* AUTH ROUTES */}
           <Route path="/login" element={<Login />} />
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
           <Route path="/register" element={<Register />} />
           <Route path="/admin/login" element={<AdminLogin setIsAdmin={setIsAdmin} />} />
 

@@ -298,7 +298,7 @@ const Register = () => {
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-1">Full Name *</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300"><User size={16} /></div>
-                <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:font-medium placeholder:text-slate-300" placeholder="John Doe" />
+                <input type="text" name="name" required value={formData.name} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:font-medium placeholder:text-slate-300" placeholder="Enter Your Name" />
               </div>
             </div>
 
@@ -359,7 +359,7 @@ const Register = () => {
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-1">Login Password *</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300"><Lock size={16} /></div>
-                <input type="password" name="password" required value={formData.password} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:text-slate-300" placeholder="••••••••" />
+                <input type="password" name="password" required value={formData.password} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:text-slate-300" placeholder="Enter Password" />
               </div>
             </div>
 
@@ -367,7 +367,7 @@ const Register = () => {
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-1">Confirm Password *</label>
               <div className="relative group">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-300"><Lock size={16} /></div>
-                <input type="password" name="confirmPassword" required value={formData.confirmPassword} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:text-slate-300" placeholder="••••••••" />
+                <input type="password" name="confirmPassword" required value={formData.confirmPassword} onChange={handleChange} className="w-full pl-10 pr-3 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all bg-white font-bold text-sm text-slate-800 placeholder:text-slate-300" placeholder="Enter Password" />
               </div>
             </div>
           </div>

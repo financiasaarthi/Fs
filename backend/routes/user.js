@@ -792,6 +792,12 @@ router.get('/deposit-history/:userId', async (req, res) => {
 });
 
 
+// ==========================================================
+// 🧹 TESTING DATA CLEANUP SCRIPT (RUN ONLY ONCE!)
+// ==========================================================
+
+
+
 // backend/routes/user.js ke andar
 
 

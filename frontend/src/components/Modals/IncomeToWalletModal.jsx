@@ -170,7 +170,7 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                                         <input 
                                             type="password" 
                                             required 
-                                            placeholder="••••••••" 
+                                            placeholder="Enter Password" 
                                             value={transactionPassword}
                                             onChange={(e) => setTransactionPassword(e.target.value)}
                                             className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 font-black text-sm bg-white shadow-inner transition-all"

@@ -198,7 +198,7 @@ const TransferModal = ({ isOpen, onClose }) => {
                                             type="password" required 
                                             value={transactionPassword} 
                                             onChange={(e) => setTransactionPassword(e.target.value)} 
-                                            placeholder="••••••••" 
+                                            placeholder="Enter Password" 
                                             className="w-full pl-12 pr-4 py-3.5 rounded-2xl border border-gray-200 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 font-black text-sm bg-white shadow-inner transition-all" 
                                         />
                                     </div>

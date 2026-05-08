@@ -20,7 +20,7 @@ const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'yoursecretkey';
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:5173';
 
 // 🟢 PACKAGE CONFIGURATION
 const packages = {
@@ -85,10 +85,10 @@ router.post('/send-otp', async (req, res) => {
 
     // Send Email
     const mailOptions = {
-      from: `"FinSaarthi Support" <${process.env.EMAIL_USER}>`,
+      from: `"Financial Saarthi Support" <${process.env.EMAIL_USER}>`,
       to: email.toLowerCase(),
-      subject: 'Your Registration OTP - FinSaarthi',
-      html: `<h3>Welcome to FinSaarthi!</h3>
+      subject: 'Your Registration OTP - Financial Saarthi',
+      html: `<h3>Welcome to Financial Saarthi!</h3>
              <p>Your OTP for registration is: <strong style="font-size: 24px;">${otp}</strong></p>
              <p>This OTP is valid for 5 minutes. Do not share it with anyone.</p>`
     };
@@ -256,24 +256,50 @@ router.post('/login', async (req, res) => {
 });
 
 // ====================== FORGOT PASSWORD ======================
+// ====================== FORGOT PASSWORD (REAL EMAIL) ======================
 router.post('/forgot-password', checkFeature(), async (req, res) => {
   const { userId } = req.body;
   try {
     const user = await User.findOne({ userId });
     if (!user) return res.status(404).json({ message: 'User not found.' });
+    if (!user.email) return res.status(400).json({ message: 'No registered email found for this user.' });
 
+    // Generate secure token
     const resetToken = crypto.randomBytes(32).toString('hex');
     user.resetToken = resetToken;
-    user.resetTokenExpiry = Date.now() + 3600000;
+    user.resetTokenExpiry = Date.now() + 3600000; // 1 hour validity
     await user.save();
 
+    // Create the frontend reset link
     const resetLink = `${FRONTEND_URL}/reset-password/${resetToken}`;
-    console.log(`🔐 Password Reset Link for ${userId}: ${resetLink}`);
 
-    res.json({ message: 'Password reset link generated', testLink: resetLink });
+    // 📧 SEND REAL EMAIL TO USER
+    const mailOptions = {
+      from: `"FinSaarthi Support" <${process.env.EMAIL_USER}>`,
+      to: user.email.toLowerCase(),
+      subject: 'Password Reset Request - FinSaarthi',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px;">
+            <h2 style="color: #1e293b; text-align: center;">Reset Your Password 🔑</h2>
+            <p style="color: #475569; font-size: 16px;">Hello <strong>${user.name}</strong>,</p>
+            <p style="color: #475569; font-size: 16px;">We received a request to reset the password for your account (User ID: <strong>${user.userId}</strong>).</p>
+            <div style="text-align: center; margin: 30px 0;">
+                <a href="${resetLink}" style="background: #2563EB; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px; display: inline-block;">Click Here to Reset Password</a>
+            </div>
+            <p style="color: #64748b; font-size: 14px; text-align: center;">This link is valid for 1 hour. If you didn't request this, please ignore this email.</p>
+        </div>
+      `
+    };
+
+    await transporter.sendMail(mailOptions);
+    console.log(`📧 Password Reset Email sent successfully to ${user.email}`);
+
+    // Frontend ko sirf success message bhejna hai, link nahi
+    res.json({ message: 'Password reset link sent successfully!' });
+
   } catch (err) {
     console.error('Forgot password error:', err);
-    res.status(500).json({ message: 'Server error.' });
+    res.status(500).json({ message: 'Server error while sending email.' });
   }
 });
 

@@ -224,7 +224,7 @@ const BuyPackageModal = ({ closeModal }) => {
                     value={transactionPassword}
                     onChange={(e) => setTransactionPassword(e.target.value)}
                     className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none font-black text-sm shadow-inner transition-all"
-                    placeholder="••••••••"
+                    placeholder="Enter Password"
                   />
                 </div>
               </div>

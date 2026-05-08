@@ -19,6 +19,16 @@ const userSchema = new mongoose.Schema({
   isTelegramJoined: { type: Boolean, default: false },
   isBlocked: { type: Boolean, default: false }, 
 
+
+  resetToken: { 
+      type: String, 
+      default: null 
+  },
+  resetTokenExpiry: { 
+      type: Number, 
+      default: null 
+  },
+
   // 🟢 MLM Network Fields
   sponsorId: { type: Number, required: true, index: true },
   placementId: { type: Number, required: true, index: true },
@@ -84,6 +94,9 @@ const userSchema = new mongoose.Schema({
   },
   salaryMonthsRemaining: { type: Number, default: 0 }
 }, { timestamps: true });
+
+
+
 
 // 🔥 PERFORMANCE INDEXES
 userSchema.index({ ipAddress: 1 });

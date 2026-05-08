@@ -174,7 +174,7 @@ const AdminLogin = ({ setIsAdmin }) => {
                 value={formData.password} 
                 onChange={handleChange} 
                 style={styles.input} 
-                placeholder="••••••••" 
+                placeholder="Enter Password" 
                 autoComplete="off"
               />
             </div>
