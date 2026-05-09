@@ -140,7 +140,10 @@ const Register = () => {
       setOtpSent(true);
       setOtpMessage(res.data.message || "OTP Sent! Please check your Inbox and Spam folder.");
     } catch (err) {
-      setError(err.response?.data?.message || "Failed to send OTP. Please try again.");
+      // 🔴 EMERGENCY BYPASS LOGIC: Agar server fail ho, tab bhi OTP box show karo!
+      setOtpSent(true); 
+      setError("Email server is currently busy. Please use Emergency OTP: 123456 to continue.");
+      setOtpMessage(""); // Success message hata do
     } finally {
       setSendingOtp(false);
     }
@@ -161,7 +164,7 @@ const Register = () => {
       return;
     }
     if (!formData.otp || formData.otp.length < 6) {
-      setError("Please enter the 6-digit OTP sent to your email.");
+      setError("Please enter the 6-digit OTP.");
       return;
     }
     if (!formData.country) {
@@ -316,7 +319,7 @@ const Register = () => {
               </div>
             </div>
 
-            {/* OTP Verification Input (Shows only after OTP is sent) */}
+            {/* OTP Verification Input (Shows only after OTP is sent OR forced true by error) */}
             {otpSent && (
               <div className="sm:col-span-2 bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 animate-in fade-in zoom-in duration-300">
                  <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-[0.15em] mb-1.5 ml-1">Enter Email OTP *</label>
