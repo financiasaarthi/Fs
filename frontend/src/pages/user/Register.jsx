@@ -82,16 +82,21 @@ const Register = () => {
     confirmPassword: ""
   });
 
+  // Scroll to top helper to show errors clearly
+  const scrollToError = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
-    setError(""); 
+    if(error) setError(""); 
   };
 
   // 🟢 strictly allow ONLY NUMBERS for Mobile Input
   const handleMobileChange = (e) => {
     const onlyNumbers = e.target.value.replace(/\D/g, '');
     setFormData({ ...formData, mobile: onlyNumbers });
-    setError("");
+    if(error) setError("");
   };
 
   // Verify Sponsor Live
@@ -124,26 +129,37 @@ const Register = () => {
   const handleSendOtp = async () => {
     if (!formData.email) {
       setError("Please enter your email address to get the OTP.");
+      scrollToError();
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       setError("Please enter a valid email format.");
+      scrollToError();
       return;
     }
 
     setSendingOtp(true);
     setError("");
     setOtpMessage("");
+    
     try {
       const res = await axios.post('/api/auth/send-otp', { email: formData.email });
       setOtpSent(true);
       setOtpMessage(res.data.message || "OTP Sent! Please check your Inbox and Spam folder.");
     } catch (err) {
-      // 🔴 EMERGENCY BYPASS LOGIC: Agar server fail ho, tab bhi OTP box show karo!
-      setOtpSent(true); 
-      setError("Email server is currently busy. Please use Emergency OTP: 123456 to continue.");
-      setOtpMessage(""); // Success message hata do
+      // 🟢 SMART ERROR CATCHING: 400 aur 500 me difference
+      if (err.response && err.response.status === 400) {
+        // Backend se Exact Message Aaya Hai (Duplicate Email, Invalid Data, etc.)
+        setOtpSent(false); // Box mat open karo
+        setError(err.response.data.message || "Invalid Request. Please check your details.");
+      } else {
+        // 🔴 500 ERROR Aaya Hai (Email limit cross hui hai ya server fail hai) -> TABHI BYPASS KARENGE
+        setOtpSent(true); 
+        setError("Email server is currently busy. Please use Emergency OTP: 123456 to continue.");
+        setOtpMessage(""); 
+      }
+      scrollToError();
     } finally {
       setSendingOtp(false);
     }
@@ -154,33 +170,40 @@ const Register = () => {
     e.preventDefault();
     setError("");
 
-    // 🔴 Validation Popups (Errors displayed clearly at the top)
+    // 🔴 Validation Popups
     if (!sponsorName) {
       setError("Valid Referral Sponsor ID is required to register.");
+      scrollToError();
       return;
     }
     if (!otpSent) {
       setError("Please click 'Get OTP' and verify your email first.");
+      scrollToError();
       return;
     }
     if (!formData.otp || formData.otp.length < 6) {
       setError("Please enter the 6-digit OTP.");
+      scrollToError();
       return;
     }
     if (!formData.country) {
       setError("Please select your Country.");
+      scrollToError();
       return;
     }
     if (formData.mobile.length < 7) {
       setError("Please enter a valid Mobile Number.");
+      scrollToError();
       return;
     }
     if (formData.password.length < 6) {
       setError("Password must be at least 6 characters long.");
+      scrollToError();
       return;
     }
     if (formData.password !== formData.confirmPassword) {
       setError("Login Password and Confirm Password do not match!");
+      scrollToError();
       return;
     }
 
@@ -205,7 +228,9 @@ const Register = () => {
       setIsModalOpen(true); 
 
     } catch (err) {
+      // 🟢 Exact Registration Backend Error
       setError(err.response?.data?.message || "Registration Failed. Please try again.");
+      scrollToError();
     } finally {
       setLoading(false);
     }
@@ -240,7 +265,7 @@ const Register = () => {
           <p className="text-slate-400 font-bold mt-1 text-[9px] md:text-[10px] uppercase tracking-[0.2em]">Join the network and start earning</p>
         </div>
 
-        {/* Global Error Display */}
+        {/* Global Error Display (Exact Message dikhega yaha) */}
         {error && (
           <div className="mb-5 p-3.5 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm" style={{ animation: 'shake 0.4s ease-in-out' }}>
             <AlertCircle size={16} className="shrink-0" /> <span className="tracking-wide">{error}</span>
@@ -261,7 +286,7 @@ const Register = () => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           
-          {/* SPONSOR & POSITION (Highlighted Box) */}
+          {/* SPONSOR & POSITION */}
           <div className="bg-blue-50/60 p-4 md:p-5 rounded-2xl border border-blue-100 space-y-4 shadow-inner">
             <div>
               <label className="block text-[10px] font-black text-blue-800 uppercase tracking-[0.15em] mb-1.5 ml-1">Referral Sponsor ID</label>
@@ -319,7 +344,7 @@ const Register = () => {
               </div>
             </div>
 
-            {/* OTP Verification Input (Shows only after OTP is sent OR forced true by error) */}
+            {/* OTP Verification Input */}
             {otpSent && (
               <div className="sm:col-span-2 bg-emerald-50/70 p-3 rounded-xl border border-emerald-100 animate-in fade-in zoom-in duration-300">
                  <label className="block text-[10px] font-black text-emerald-700 uppercase tracking-[0.15em] mb-1.5 ml-1">Enter Email OTP *</label>
@@ -341,14 +366,13 @@ const Register = () => {
                     <option key={i} value={c.name}>{c.name} ({c.code})</option>
                   ))}
                 </select>
-                {/* Custom arrow for select */}
                 <div className="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none text-slate-400">
                   <svg className="w-4 h-4 fill-current" viewBox="0 0 20 20"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
                 </div>
               </div>
             </div>
 
-            {/* Mobile Number (Numbers Only) */}
+            {/* Mobile Number */}
             <div>
               <label className="block text-[10px] font-black text-slate-400 uppercase tracking-[0.15em] mb-1.5 ml-1">Mobile Number *</label>
               <div className="relative group">
@@ -375,7 +399,7 @@ const Register = () => {
             </div>
           </div>
 
-          {/* SUBMIT BUTTON (Always open, handles validation on click) */}
+          {/* SUBMIT BUTTON */}
           <div className="pt-3">
             <button type="submit" disabled={loading} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.15)] transition-all transform active:scale-[0.98] disabled:bg-slate-300 disabled:shadow-none text-xs uppercase tracking-[0.2em] flex justify-center items-center gap-2 group">
               {loading ? <><Loader2 className="animate-spin" size={18} /> Processing...</> : <>Complete Registration <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" /></>}
@@ -388,7 +412,7 @@ const Register = () => {
         </div>
       </div>
 
-      {/* SUCCESS MODAL (Shows Free Package and Credentials) */}
+      {/* SUCCESS MODAL */}
       <SuccessModal 
         isOpen={isModalOpen}
         title="Congratulations! 🎉"
@@ -399,7 +423,6 @@ const Register = () => {
       >
         {registeredData && (
           <div className="bg-slate-50 border border-slate-200 rounded-2xl p-5 mt-4 space-y-4 shadow-inner text-left">
-            
             <div className="bg-gradient-to-r from-amber-500 to-orange-500 p-3 md:p-4 rounded-xl shadow-md border border-orange-400 flex items-center gap-3 animate-in zoom-in">
               <div className="bg-white/20 p-2 rounded-full text-white"><ShieldCheck size={24} /></div>
               <div>

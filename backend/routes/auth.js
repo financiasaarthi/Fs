@@ -68,23 +68,27 @@ const findFinalPlacement = async (parentId, side) => {
 };
 
 // ====================== SEND OTP ROUTE ======================
+// ====================== SEND OTP ======================
 router.post('/send-otp', async (req, res) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ message: 'Email is required.' });
 
-    // Duplicate Check
+    // 1. Duplicate Check
     const existingUser = await User.findOne({ email: email.toLowerCase() });
-    if (existingUser) return res.status(400).json({ message: 'Email already registered.' });
+    if (existingUser) {
+        console.log(`⚠️ OTP Failed: Email ${email} is already registered.`);
+        return res.status(400).json({ message: 'Email already registered. Please login.' });
+    }
 
-    // Generate 6-digit OTP
+    // 2. Generate 6-digit OTP
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Save/Update OTP in DB
+    // 3. Save/Update OTP in DB
     await Otp.findOneAndDelete({ email: email.toLowerCase() });
     await new Otp({ email: email.toLowerCase(), otp }).save();
 
-    // Send Email
+    // 4. Send Email
     const mailOptions = {
       from: `"Financial Saarthi Support" <${process.env.EMAIL_USER}>`,
       to: email.toLowerCase(),
@@ -95,11 +99,13 @@ router.post('/send-otp', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
+    console.log(`✅ OTP successfully sent to ${email}`);
     res.status(200).json({ message: 'OTP sent successfully to your email.' });
 
   } catch (error) {
-    console.error('OTP Error:', error);
-    res.status(500).json({ message: 'Failed to send OTP.' });
+    console.error('❌ OTP Email Server Error:', error.message);
+    // Yeh error frontend pe jayega (500), aur tabhi Emergency OTP dikhega
+    res.status(500).json({ message: 'Failed to send OTP. Email Server Busy.' });
   }
 });
 
@@ -116,15 +122,13 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
     if (password !== confirmPassword) return res.status(400).json({ message: "Password does not match!" });
     if (!sponsorId) return res.status(400).json({ message: 'Sponsor ID is compulsory.' });
 
-    // 1. Verify OTP (🚨 EMERGENCY BYPASS ADDED)
+    // 1. Verify OTP (🚨 EMERGENCY BYPASS)
     let validOtp = null;
     
-    // Agar server error de aur user 123456 daale, to aage badhne do bina roke
     if (otp === "123456") {
-        validOtp = { _id: "bypass_otp" }; // Fake ID taki aage ka code crash na ho
+        validOtp = { _id: "bypass_otp" }; 
         console.log(`⚠️ User ${email} registered using Emergency Master OTP (123456).`);
     } else {
-        // Normal OTP verification
         validOtp = await Otp.findOne({ email: email.toLowerCase(), otp });
         if (!validOtp) return res.status(400).json({ message: "Invalid or Expired OTP!" });
     }
@@ -145,7 +149,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     const userId = await generateUserId();
 
-    // 5. Create User WITH $10 FREE PACKAGE (Fixed for Frontend Dashboard)
+    // 5. Create User WITH $10 FREE PACKAGE
     const user = new User({
       userId, 
       username: name || 'User', 
@@ -162,14 +166,12 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       ipAddress: userIP,
       deviceId: deviceId || null,
 
-      // 🔥 ASLI FIX: Frontend dashboard yahan se read karta hai active packages ko
       isActive: true,
-      activePackages: [10],               // Array mein $10 add kiya
-      currentPackage: 10,                 // Current package $10 set kiya
-      totalCap: 20,                       // 10 * 2 = 20 Capping limit
+      activePackages: [10],               
+      currentPackage: 10,                 
+      totalCap: 20,                       
       activationDate: new Date(),
       
-      // Ye purani details bhi safe rakhi hain
       packageAmount: 10,
       dailyIncome: packages[10].dailyIncome,
       totalTasksAvailable: packages[10].dailyTasks,
@@ -178,11 +180,11 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     await user.save();
 
-    // 🟢 6. NAYA FIX: User ki history/admin me entry dikhane ke liye Transaction record create karna
+    // 6. Transaction Record
     try {
         const transaction = new Transaction({
             userId: user.userId,
-            type: 'PACKAGE_ACTIVATION', // (Agar aapke schema me naam alag hai jaise 'ACTIVATION', toh wo daal dena)
+            type: 'PACKAGE_ACTIVATION', 
             transactionType: 'credit',
             walletType: 'main_wallet',
             amount: 10,
@@ -195,7 +197,7 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
         console.error("❌ Free Package Transaction Record Error:", txErr);
     }
 
-    // 7. Delete OTP after use (Bypass OTP ko delete karne ka try mat karna)
+    // 7. Delete OTP
     if (validOtp._id !== "bypass_otp") {
         await Otp.deleteOne({ _id: validOtp._id });
     }
