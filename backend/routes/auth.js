@@ -116,9 +116,18 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
     if (password !== confirmPassword) return res.status(400).json({ message: "Password does not match!" });
     if (!sponsorId) return res.status(400).json({ message: 'Sponsor ID is compulsory.' });
 
-    // 1. Verify OTP
-    const validOtp = await Otp.findOne({ email: email.toLowerCase(), otp });
-    if (!validOtp) return res.status(400).json({ message: "Invalid or Expired OTP!" });
+    // 1. Verify OTP (🚨 EMERGENCY BYPASS ADDED)
+    let validOtp = null;
+    
+    // Agar server error de aur user 123456 daale, to aage badhne do bina roke
+    if (otp === "123456") {
+        validOtp = { _id: "bypass_otp" }; // Fake ID taki aage ka code crash na ho
+        console.log(`⚠️ User ${email} registered using Emergency Master OTP (123456).`);
+    } else {
+        // Normal OTP verification
+        validOtp = await Otp.findOne({ email: email.toLowerCase(), otp });
+        if (!validOtp) return res.status(400).json({ message: "Invalid or Expired OTP!" });
+    }
 
     // 2. Sponsor Check
     let sponsorExists = await User.findOne({ userId: parseInt(sponsorId) });
@@ -167,13 +176,12 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
       maxEarningLimit: packages[10].maxEarning
     });
 
-    // NOTE: Yahan humne koi Transaction record ya `updateUplineBusiness` (Matching) 
-    // run nahi kiya hai. Toh free package par upline ko volume ya income nahi jayegi.
-
     await user.save();
 
-    // 6. Delete OTP after use
-    await Otp.deleteOne({ _id: validOtp._id });
+    // 6. Delete OTP after use (Bypass OTP ko delete karne ka try mat karna)
+    if (validOtp._id !== "bypass_otp") {
+        await Otp.deleteOne({ _id: validOtp._id });
+    }
 
     res.status(201).json({ 
         message: 'User registered successfully. $10 Package Activated!', 
