@@ -251,7 +251,7 @@ router.post('/buy-package-for-user', async (req, res) => {
         const targetUser = await User.findOne({ userId: Number(targetUserId) });
         if (!targetUser) return res.status(404).json({ message: "Target User ID not found." });
 
-        // 🟢 NAYA FIX: Duplicate Package Check
+        // 🟢 Duplicate Package Check
         if (targetUser.activePackages && targetUser.activePackages.includes(amount)) {
             return res.status(400).json({ 
                 message: `User already has the $${amount} package active. Please upgrade to a different package.` 
@@ -271,34 +271,35 @@ router.post('/buy-package-for-user', async (req, res) => {
         const newCap = (amount * 2); 
         targetUser.totalCap = (targetUser.totalCap || 0) + newCap; 
 
-        // 3. 💰 DIRECT INCOME LOGIC
-      // 3. 💰 DIRECT INCOME LOGIC
-        const sponsor = await User.findOne({ userId: targetUser.sponsorId });
-        if (sponsor && sponsor.isActive) { 
-            const directIncome = amount * 0.10; 
-            
-            // 1. Withdrawable wallet mein add kiya
-            sponsor.wallets.directIncome = (sponsor.wallets.directIncome || 0) + directIncome;
-            
-            // 🟢 2. YAHAN FIX KIYA: Lifetime Total Direct Income mein add kiya (Dashboard ke liye)
-            sponsor.wallets.totalDirectIncome = (sponsor.wallets.totalDirectIncome || 0) + directIncome;
-            
-            // 3. Total Earned mein add kiya
-            sponsor.wallets.totalEarned = (sponsor.wallets.totalEarned || 0) + directIncome;
-            
-            await sponsor.save({ validateBeforeSave: false });
+        // 🟢 FIX: DIRECT INCOME LOGIC - Sirf tabhi chalega jab amount > 10 ho
+        if (amount > 10) {
+            const sponsor = await User.findOne({ userId: targetUser.sponsorId });
+            if (sponsor && sponsor.isActive) { 
+                const directIncome = amount * 0.10; 
+                
+                // 1. Withdrawable wallet mein add kiya
+                sponsor.wallets.directIncome = (sponsor.wallets.directIncome || 0) + directIncome;
+                
+                // 2. Lifetime Total Direct Income mein add kiya (Dashboard ke liye)
+                sponsor.wallets.totalDirectIncome = (sponsor.wallets.totalDirectIncome || 0) + directIncome;
+                
+                // 3. Total Earned mein add kiya
+                sponsor.wallets.totalEarned = (sponsor.wallets.totalEarned || 0) + directIncome;
+                
+                await sponsor.save({ validateBeforeSave: false });
 
-            // 📝 HISTORY 1: SPONSOR DIRECT INCOME
-            await Transaction.create({
-                userId: sponsor.userId,
-                amount: directIncome,
-                type: 'DIRECT_INCOME',
-                transactionType: 'credit', 
-                walletType: 'direct_income', 
-                fromUserId: targetUser.userId, 
-                description: `Direct Income from User ${targetUser.userId} package activation`,
-                status: 'completed'
-            });
+                // 📝 HISTORY 1: SPONSOR DIRECT INCOME
+                await Transaction.create({
+                    userId: sponsor.userId,
+                    amount: directIncome,
+                    type: 'DIRECT_INCOME',
+                    transactionType: 'credit', 
+                    walletType: 'direct_income', 
+                    fromUserId: targetUser.userId, 
+                    description: `Direct Income from User ${targetUser.userId} package activation`,
+                    status: 'completed'
+                });
+            }
         }
 
         await buyer.save({ validateBeforeSave: false });
@@ -329,8 +330,8 @@ router.post('/buy-package-for-user', async (req, res) => {
             status: 'completed' 
         });
 
-        // 🟢 NAYA FIX: BINARY VOLUME AUR INCOME TRIGGER
-        if (targetUser.placementId && targetUser.position && targetUser.position !== 'NONE') {
+        // 🟢 FIX: BINARY VOLUME AUR INCOME TRIGGER - Sirf tabhi count hoga jab amount > 10 ho
+        if (amount > 10 && targetUser.placementId && targetUser.position && targetUser.position !== 'NONE') {
             // Note: Make sure updateUplineBusiness is imported or available in this file!
             await updateUplineBusiness(targetUser.placementId, targetUser.position, amount);
         }
