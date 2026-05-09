@@ -14,7 +14,7 @@ const LoginHistory = require('../models/LoginHistory');
 const IpRule = require('../models/IpRule'); 
 const BlockedDevice = require('../models/BlockedDevice'); 
 const { bot } = require('../utils/telegramBot');
-
+const Transaction = require('../models/Transaction'); // path apne hisab se check kar lena
 // 🔥 NEW IMPORTS FOR OTP AND EMAIL
 const nodemailer = require('nodemailer');
 const Otp = require('../models/Otp');
@@ -178,7 +178,24 @@ router.post('/register', checkFeature('allowRegistrations'), async (req, res) =>
 
     await user.save();
 
-    // 6. Delete OTP after use (Bypass OTP ko delete karne ka try mat karna)
+    // 🟢 6. NAYA FIX: User ki history/admin me entry dikhane ke liye Transaction record create karna
+    try {
+        const transaction = new Transaction({
+            userId: user.userId,
+            type: 'PACKAGE_ACTIVATION', // (Agar aapke schema me naam alag hai jaise 'ACTIVATION', toh wo daal dena)
+            transactionType: 'credit',
+            walletType: 'main_wallet',
+            amount: 10,
+            txHash: `FREE-${user.userId}-${Date.now()}`,
+            description: "Free $10 Registration Bonus Package",
+            status: "completed"
+        });
+        await transaction.save();
+    } catch (txErr) {
+        console.error("❌ Free Package Transaction Record Error:", txErr);
+    }
+
+    // 7. Delete OTP after use (Bypass OTP ko delete karne ka try mat karna)
     if (validOtp._id !== "bypass_otp") {
         await Otp.deleteOne({ _id: validOtp._id });
     }
