@@ -55,7 +55,12 @@ const styleSheet = `
 const Register = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  
+  // 🟢 FIX: URL se Sponsor ID aur Position (Left/Right) dono nikal rahe hain
   const sponsorFromURL = searchParams.get('sponsor') || "";
+  const posParam = searchParams.get('position');
+  const positionFromURL = posParam ? posParam.toUpperCase() : "LEFT";
+  const validPosition = (positionFromURL === "RIGHT") ? "RIGHT" : "LEFT";
 
   const [loading, setLoading] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
@@ -72,7 +77,7 @@ const Register = () => {
 
   const [formData, setFormData] = useState({
     sponsorId: sponsorFromURL, 
-    position: "LEFT",
+    position: validPosition, // 🟢 FIX: Yahan URL wali position automatically set hogi
     name: "",
     email: "",
     otp: "",
@@ -148,13 +153,11 @@ const Register = () => {
       setOtpSent(true);
       setOtpMessage(res.data.message || "OTP Sent! Please check your Inbox and Spam folder.");
     } catch (err) {
-      // 🟢 SMART ERROR CATCHING: 400 aur 500 me difference
+      // 🟢 SMART ERROR CATCHING
       if (err.response && err.response.status === 400) {
-        // Backend se Exact Message Aaya Hai (Duplicate Email, Invalid Data, etc.)
-        setOtpSent(false); // Box mat open karo
+        setOtpSent(false);
         setError(err.response.data.message || "Invalid Request. Please check your details.");
       } else {
-        // 🔴 500 ERROR Aaya Hai (Email limit cross hui hai ya server fail hai) -> TABHI BYPASS KARENGE
         setOtpSent(true); 
         setError("Email server is currently busy. Please use Emergency OTP: 123456 to continue.");
         setOtpMessage(""); 
@@ -165,7 +168,7 @@ const Register = () => {
     }
   };
 
-  // Handle Final Submit (Button is always enabled)
+  // Handle Final Submit
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
@@ -228,7 +231,6 @@ const Register = () => {
       setIsModalOpen(true); 
 
     } catch (err) {
-      // 🟢 Exact Registration Backend Error
       setError(err.response?.data?.message || "Registration Failed. Please try again.");
       scrollToError();
     } finally {
@@ -265,7 +267,7 @@ const Register = () => {
           <p className="text-slate-400 font-bold mt-1 text-[9px] md:text-[10px] uppercase tracking-[0.2em]">Join the network and start earning</p>
         </div>
 
-        {/* Global Error Display (Exact Message dikhega yaha) */}
+        {/* Global Error Display */}
         {error && (
           <div className="mb-5 p-3.5 bg-red-50 border border-red-100 text-red-600 rounded-xl text-xs font-bold text-center flex items-center justify-center gap-2 shadow-sm" style={{ animation: 'shake 0.4s ease-in-out' }}>
             <AlertCircle size={16} className="shrink-0" /> <span className="tracking-wide">{error}</span>

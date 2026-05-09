@@ -3,7 +3,12 @@ import { Copy, CheckCircle2, Share2 } from 'lucide-react';
 
 const ReferralBox = ({ userId }) => {
   const [copied, setCopied] = useState(false);
-  const referralLink = `${window.location.origin}/register?sponsor=${userId || ''}`;
+  
+  // 🟢 NAYA ADD KIYA: Left / Right position track karne ke liye state
+  const [position, setPosition] = useState('left'); 
+
+  // 🟢 NAYA FIX: URL mein '&position=left' ya '&position=right' add ho jayega
+  const referralLink = `${window.location.origin}/register?sponsor=${userId || ''}&position=${position}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(referralLink);
@@ -36,10 +41,34 @@ const ReferralBox = ({ userId }) => {
         )}
       </div>
 
-      {/* 🟢 Compact Link & Button Row */}
+      {/* 🟢 NAYA: Left / Right Toggle Switch (Super Clean UI) */}
+      <div className="flex items-center bg-gray-50 p-1 rounded-2xl mb-3 border border-gray-100">
+        <button
+          onClick={() => setPosition('left')}
+          className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+            position === 'left'
+              ? 'bg-white text-blue-600 shadow-sm border border-gray-100'
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Left Leg
+        </button>
+        <button
+          onClick={() => setPosition('right')}
+          className={`flex-1 py-2 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all ${
+            position === 'right'
+              ? 'bg-white text-blue-600 shadow-sm border border-gray-100'
+              : 'text-gray-400 hover:text-gray-600'
+          }`}
+        >
+          Right Leg
+        </button>
+      </div>
+
+      {/* Compact Link & Button Row */}
       <div className="flex flex-col gap-2">
         
-        {/* Link Field: Super Clean */}
+        {/* Link Field */}
         <div className="flex-1 bg-gray-50 border border-gray-100 rounded-2xl px-4 py-3 flex items-center overflow-hidden group hover:border-blue-100 transition-colors">
           <input 
             type="text" 
@@ -49,7 +78,7 @@ const ReferralBox = ({ userId }) => {
           />
         </div>
 
-        {/* Action Button: Consistent with IncomeStats/ActionButtons */}
+        {/* Action Button */}
         <button 
           onClick={handleCopy}
           className={`flex items-center justify-center gap-2 w-full py-3 rounded-2xl text-[10px] font-black transition-all uppercase tracking-widest shadow-sm active:scale-95 ${
@@ -61,7 +90,7 @@ const ReferralBox = ({ userId }) => {
           {copied ? (
             <><CheckCircle2 size={14} /> Copied</>
           ) : (
-            <><Copy size={14} /> Copy Link</>
+            <><Copy size={14} /> Copy {position === 'left' ? 'Left' : 'Right'} Link</>
           )}
         </button>
       </div>

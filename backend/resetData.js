@@ -41,8 +41,7 @@
 
 //         for (let user of users) {
 //             // A. Main Wallet Balance 0 karo
-//             user.walletBalance = 0;
-
+ 
 //             if (user.wallets) {
 //                 // B. Direct Income 0 karo
 //                 user.wallets.directIncome = 0;
