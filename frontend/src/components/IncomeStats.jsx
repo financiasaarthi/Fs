@@ -1,70 +1,106 @@
-import React from 'react';
-import { DollarSign, Zap, Users, TrendingUp, Package, Award } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { DollarSign, Zap, Users, TrendingUp, Package, Award, Globe } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
+import api from '../api/axios'; // 🟢 Vite error se bachne ke liye apna API instance use kiya
 
 const IncomeStats = () => {
   const { user } = useAuth();
+  
+  // 🟢 Naya state total system users ke liye
+  const [totalSystemUsers, setTotalSystemUsers] = useState(0);
 
-  // 📊 Stats array: Ab yahan 'total...' fields fetch kiye gaye hain 
-  // taaki withdrawal ke baad amount minus na ho.
+  // 🟢 Backend se total users fetch karne ka logic (using axios/api)
+  useEffect(() => {
+    const fetchTotalUsers = async () => {
+      try {
+        // Base URL ki zarurat nahi, api.js khud handle kar lega
+        const response = await api.get('/users/total-users'); 
+        
+        if (response.data && response.data.success) {
+          setTotalSystemUsers(response.data.totalUsers);
+        } else if (response.data && response.data.totalUsers !== undefined) {
+          // Agar aapka backend direct object bhejta hai
+          setTotalSystemUsers(response.data.totalUsers);
+        }
+      } catch (error) {
+        console.error("Error fetching total users:", error);
+      }
+    };
+    
+    fetchTotalUsers();
+  }, []);
+
+  // 📊 Stats array
   const stats = [
+    {
+      name: 'Total System Users',
+      value: totalSystemUsers, // Database se aayi hui value
+      icon: <Globe size={16} />,
+      color: 'text-teal-600',
+      borderColor: 'border-t-teal-500',
+      bgLight: 'bg-teal-50/50',
+      isCurrency: false // 🔴 Yahan false rakha hai taaki user count me $ na aaye
+    },
     {
       name: 'Active Package',
       value: user?.currentPackage || 0,
       icon: <Package size={16} />,
       color: 'text-indigo-600',
       borderColor: 'border-t-indigo-500',
-      bgLight: 'bg-indigo-50/50'
+      bgLight: 'bg-indigo-50/50',
+      isCurrency: true
     },
     {
       name: 'Total Earned',
-      value: user?.wallets?.totalEarned || 0, // Ye kabhi minus nahi hona chahiye
+      value: user?.wallets?.totalEarned || 0,
       icon: <DollarSign size={16} />,
       color: 'text-emerald-600',
       borderColor: 'border-t-emerald-500',
-      bgLight: 'bg-emerald-50/50'
+      bgLight: 'bg-emerald-50/50',
+      isCurrency: true
     },
     {
       name: 'Direct Bonus',
-      // 🟢 FIX: totalDirectIncome use kiya
       value: user?.wallets?.totalDirectIncome || user?.wallets?.directIncome || 0,
       icon: <Users size={16} />,
       color: 'text-blue-600',
       borderColor: 'border-t-blue-500',
-      bgLight: 'bg-blue-50/50'
+      bgLight: 'bg-blue-50/50',
+      isCurrency: true
     },
     {
       name: 'Matching Income',
-      // 🟢 FIX: totalMatchingIncome use kiya
       value: user?.wallets?.totalMatchingIncome || user?.wallets?.matchingIncome || 0,
       icon: <Zap size={16} />,
       color: 'text-purple-600',
       borderColor: 'border-t-purple-500',
-      bgLight: 'bg-purple-50/50'
+      bgLight: 'bg-purple-50/50',
+      isCurrency: true
     },
     {
       name: 'Task Income',
-      // 🟢 FIX: totalTaskIncome use kiya
       value: user?.wallets?.totalTaskIncome || user?.wallets?.taskIncome || 0,
       icon: <TrendingUp size={16} />,
       color: 'text-orange-600',
       borderColor: 'border-t-orange-500',
-      bgLight: 'bg-orange-50/50'
+      bgLight: 'bg-orange-50/50',
+      isCurrency: true
     },
     {
       name: 'Rank Reward Income',
-      // 🟢 FIX: totalRankReward use kiya
       value: user?.wallets?.totalRankReward || user?.wallets?.rankReward || 0,
       icon: <Award size={16} />,
       color: 'text-rose-600',
       borderColor: 'border-t-rose-500',
-      bgLight: 'bg-rose-50/50'
+      bgLight: 'bg-rose-50/50',
+      isCurrency: true
     }
   ];
 
   return (
     <div className="w-full">
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-4">
+      {/* 🟢 Grid cols update kiye taaki 7 boxes fit ho jayein (lg me 4 aur xl me 7) */}
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 sm:gap-4">
         {stats.map((item, index) => (
           <div 
             key={index} 
@@ -83,7 +119,12 @@ const IncomeStats = () => {
               </p>
 
               <h3 className="text-sm sm:text-base font-black text-gray-800 tracking-tight">
-                ${Number(item.value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {/* 🟢 Yahan logic lagaya hai, isCurrency true hoga toh $ aayega, false pe nahi */}
+                {item.isCurrency ? '$' : ''}
+                {Number(item.value).toLocaleString(undefined, { 
+                  minimumFractionDigits: item.isCurrency ? 2 : 0, 
+                  maximumFractionDigits: item.isCurrency ? 2 : 0 
+                })}
               </h3>
             </div>
           </div>

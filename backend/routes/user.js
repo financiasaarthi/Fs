@@ -169,6 +169,27 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
 // 🔍 GET /api/user/check-status/:userId (Verify karne ke liye)
 
 
+router.get('/total-users', async (req, res) => {
+  try {
+    // Database me total users count karne ke liye Mongoose ka countDocuments() method
+    const totalUsers = await User.countDocuments();
+
+    // Agar aapko sirf active users count karne hain toh aap ye line use kar sakte hain:
+    // const totalUsers = await User.countDocuments({ status: 'active' });
+
+    res.status(200).json({
+      success: true,
+      totalUsers: totalUsers
+    });
+
+  } catch (error) {
+    console.error("Error counting total users:", error);
+    res.status(500).json({
+      success: false,
+      message: "Server Error: Total users count nahi ho paaye."
+    });
+  }
+});
 // ==========================================
 // 🛠️ DATA RECOVERY SCRIPT FOR OLD USERS
 // Isko sirf 1 baar run karna hai
@@ -401,9 +422,9 @@ router.get('/my-package-history/:userId', async (req, res) => {
     }
 });
 // 🎯 POST /api/user/claim-task
+// user routes ya jahan bhi aapka claim-task hai
 router.post('/claim-task', async (req, res) => {
     try {
-        // 🔴 FIX: Yahan packageAmount ko destructure kar rahe hain
         const { userId, packageAmount } = req.body;
 
         const user = await User.findOne({ userId: Number(userId) });
@@ -452,7 +473,7 @@ router.post('/claim-task', async (req, res) => {
 
         await user.save({ validateBeforeSave: false });
 
-        // 🔴 FIX: Yahan packageAmount use kar rahe hain history save karte waqt
+        // 🔴 Task History Update
         await TaskHistory.create({
             userId: user.userId,
             packageName: packageAmount ? `$${packageAmount} Package` : "Daily Ad Task",

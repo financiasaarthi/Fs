@@ -12,7 +12,7 @@ const verifyAdmin = require('../middleware/adminAuth');
  const LoginHistory = require('../models/LoginHistory');
 const IpRule = require('../models/IpRule');
 const BlockedDevice = require('../models/BlockedDevice'); // Apna model import karein
-
+const TaskHistory = require('../models/TaskHistory');
 const { ethers } = require('ethers');
 require('dotenv').config();
 
@@ -636,6 +636,102 @@ router.get('/users', verifyAdmin, async (req, res) => {
   }
 });
 
+
+// 🟢 ROUTE: Get All Users Task History for Admin
+router.get('/all-task-history', verifyAdmin, async (req, res) => {
+  try {
+    // Bina kisi filter ke TaskHistory.find() chalayenge taaki sabhi users ka data aa jaye
+    const allHistory = await TaskHistory.find()
+      .sort({ createdAt: -1 }) // Latest tasks sabse upar
+      .lean(); // Fast performance ke liye
+
+    // Seedha array return kar rahe hain, bilkul aapke '/users' route ki tarah
+    res.json(allHistory);
+  } catch (error) {
+    console.error('Error fetching all task history:', error);
+    res.status(500).json({ message: 'Failed to fetch task history' });
+  }
+});
+// 🟢 C:\Users\HP\Desktop\add-project\backend\routes\admin.js me add karein:
+
+// 🟢 C:\Users\HP\Desktop\add-project\backend\routes\admin.js
+ 
+// 🟢 C:\Users\HP\Desktop\add-project\backend\routes\admin.js
+
+ 
+router.get('/task-summary', verifyAdmin, async (req, res) => {
+  try {
+    const allTasks = await TaskHistory.find().lean();
+    
+    // 🟢 User se uske saare active packages bhi nikal rahe hain
+    const usersData = await User.find().select('userId name currentPackage activePackages').lean();
+    const userMap = {};
+    
+    usersData.forEach(u => {
+      userMap[u.userId] = {
+        name: u.name,
+        // Agar activePackages array hai toh wo lo, warna currentPackage lo
+        activePackages: u.activePackages && u.activePackages.length > 0 
+          ? u.activePackages 
+          : (u.currentPackage ? [u.currentPackage] : [])
+      };
+    });
+
+    const summaryMap = {};
+    
+    allTasks.forEach(task => {
+      if (!task.userId) return;
+      
+      const dateObj = new Date(task.createdAt);
+      const dateStr = dateObj.toISOString().split('T')[0]; 
+      const key = `${task.userId}_${dateStr}`;
+      
+      if (!summaryMap[key]) {
+        summaryMap[key] = {
+          userId: task.userId,
+          userName: userMap[task.userId]?.name || 'Unknown',
+          activePackages: userMap[task.userId]?.activePackages || [],
+          date: dateStr,
+          totalTasksCompleted: 0,
+          packageProgress: {}, // 🟢 Yahan har package ka alag count store hoga
+          totalReward: 0,
+          lastTaskTime: dateObj
+        };
+      }
+      
+      summaryMap[key].totalTasksCompleted += 1;
+      
+      // 🟢 Task ke naam se Package ka amount nikalna (Example: "$30 Package" -> 30)
+      let pkgPrice = 0;
+      if (task.packageName) {
+         const match = task.packageName.match(/\$(\d+)/);
+         if (match) pkgPrice = Number(match[1]);
+      }
+      
+      // Us particular package ka count badhana
+      if (pkgPrice > 0) {
+         if (summaryMap[key].packageProgress[pkgPrice] === undefined) {
+             summaryMap[key].packageProgress[pkgPrice] = 0;
+         }
+         summaryMap[key].packageProgress[pkgPrice] += 1;
+      }
+
+      let reward = task.reward || task.amount || task.taskIncome || 0;
+      summaryMap[key].totalReward += Number(reward) || 0;
+      
+      if (dateObj > summaryMap[key].lastTaskTime) {
+        summaryMap[key].lastTaskTime = dateObj;
+      }
+    });
+
+    const result = Object.values(summaryMap).sort((a, b) => b.lastTaskTime - a.lastTaskTime);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching task summary:', error);
+    res.status(500).json({ message: 'Failed to fetch task summary' });
+  }
+});
 
 // Get all users as global team with count and real userIds
 router.get('/global-team', verifyAdmin, async (req, res) => {

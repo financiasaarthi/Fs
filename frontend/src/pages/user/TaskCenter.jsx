@@ -17,7 +17,7 @@ function TaskCenter() {
   const [isClaiming, setIsClaiming] = useState(false);
 
   const [currentVideo, setCurrentVideo] = useState(null);
-  const [timeLeft, setTimeLeft] = useState(15);
+  const [timeLeft, setTimeLeft] = useState(30);
   const [localProgress, setLocalProgress] = useState({});
 
   const [isSuccessOpen, setIsSuccessOpen] = useState(false);
@@ -133,14 +133,16 @@ function TaskCenter() {
     return () => clearInterval(timer);
   }, [isVideoPlaying, timeLeft]);
 
-  const handleOpenTask = (pkgPrice) => {
+ const handleOpenTask = (pkgPrice) => {
     if (!currentVideo) return;
     setActivePlayingPackage(pkgPrice);
     
     setIsVideoPlaying(false); 
     setHasStartedPlaying(false); 
     setIsVideoFinished(false);
-    setTimeLeft(currentVideo.duration || 15);
+    
+    // ✅ Ab ye hamesha 30 second hi chalega, chahe database me kuch bhi save ho!
+    setTimeLeft(30); 
   };
 
   const startActualVideo = () => {

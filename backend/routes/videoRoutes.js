@@ -16,8 +16,8 @@ router.get('/random', async (req, res) => {
                 _id: "default_video_1",
                 title: "Welcome to Financial Saarthi",
                 url: "https://www.youtube.com/embed/tgbNymZ7vqY", 
-                shareMessage: "Welcome to Financial Saarthi! Watch this video.", // 🆕 Added default message
-                duration: 15
+                shareMessage: "Welcome to Financial Saarthi! Watch this video.",
+                duration: 30 // 🟢 Default fallback set to 30 seconds
             });
         }
 
@@ -35,7 +35,7 @@ router.get('/random', async (req, res) => {
 // ==========================================
 router.get('/admin/all', async (req, res) => {
     try {
-        const videos = await Video.find().sort({ createdAt: -1 }); // Sort by newest first
+        const videos = await Video.find().sort({ createdAt: -1 }); 
         res.status(200).json(videos);
     } catch (error) {
         console.error("Admin Video Fetch Error:", error);
@@ -48,18 +48,17 @@ router.get('/admin/all', async (req, res) => {
 // ==========================================
 router.post('/admin/add', async (req, res) => {
     try {
-        const { title, url, shareMessage } = req.body; // 🆕 Extract shareMessage from request
+        const { title, url, shareMessage } = req.body;
         
         if (!title || !url) {
-            // Updated to English message
             return res.status(400).json({ message: "Title and URL are both required!" });
         }
 
         const newVideo = new Video({ 
             title, 
             url, 
-            shareMessage: shareMessage || "", // 🆕 Save shareMessage (if provided)
-            duration: 15, // Default 15 seconds
+            shareMessage: shareMessage || "", 
+            duration: 30, // 🟢 FIX: Ab har naya video 30 seconds ka save hoga database me
             isActive: true 
         });
         
@@ -72,7 +71,7 @@ router.post('/admin/add', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 ADMIN API: DELETE A VIDEO (Extra Feature)
+// 🚀 ADMIN API: DELETE A VIDEO
 // ==========================================
 router.delete('/admin/videos/:id', async (req, res) => {
     try {

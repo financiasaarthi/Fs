@@ -4,7 +4,7 @@ import {
   FaHome, FaUsers, FaMoneyBill, FaWallet, FaListAlt, FaCog, FaSignOutAlt,
   FaBars, FaTimes, FaHistory, FaShieldAlt, FaBan, FaUserSlash, FaBell,
   FaArrowCircleUp, FaArrowCircleDown, FaClipboardList, FaCoins, FaUserPlus, 
-  FaFileAlt, FaExchangeAlt, FaVideo // 🟢 FaVideo import kiya
+  FaFileAlt, FaExchangeAlt, FaVideo, FaTasks // 🟢 FaTasks import kiya Task History ke liye
 } from 'react-icons/fa';
 
 const Sidebar = () => {
@@ -87,7 +87,6 @@ const Sidebar = () => {
               <FaUserSlash className="inline-block mr-2" /> Blocked Users
             </NavLink>
 
-            {/* 🚀 NAYA LINK: MANAGE VIDEOS 🚀 */}
             <NavLink to={`${BASE_PATH}/videos`} className={linkClass} onClick={toggleSidebar}>
               <FaVideo className="inline-block mr-2" /> Manage Videos
             </NavLink>
@@ -105,9 +104,15 @@ const Sidebar = () => {
               <FaBan className="inline-block mr-2 text-red-600" /> Device Blocks
             </NavLink>
 
+            {/* 📊 ANALYTICS & LOGS SECTION 📊 */}
             <div className="pt-2 pb-1">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2">Analytics & Logs</p>
             </div>
+
+            {/* 🚀 NAYA LINK: TASK HISTORY 🚀 */}
+            <NavLink to={`${BASE_PATH}/task-history`} className={linkClass} onClick={toggleSidebar}>
+              <FaTasks className="inline-block mr-2 text-blue-600" /> Global Task History
+            </NavLink>
 
             <NavLink to={`${BASE_PATH}/login-stats`} className={linkClass} onClick={toggleSidebar}>
               <FaHistory className="inline-block mr-2" /> Login Analytics
@@ -117,6 +122,7 @@ const Sidebar = () => {
               <FaBell className="inline-block mr-2" /> Notifications
             </NavLink>
 
+            {/* 💰 FINANCE SECTION 💰 */}
             <div className="pt-2 pb-1">
                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider ml-2">Finance</p>
             </div>

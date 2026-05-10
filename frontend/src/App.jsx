@@ -57,6 +57,7 @@ import AdminLoginStats from './pages/admin/AdminLoginStats';
 import AdminSecurity from './pages/admin/AdminSecurity';
 import DeviceManager from './pages/admin/DeviceManager';
 import AdminVideos from './pages/admin/AdminVideos';
+import AdminTaskHistory from './pages/admin/AdminTaskHistory'; // path apne folder structure ke hisaab se sahi kar lena
 
 import './index.css';
 
@@ -175,6 +176,7 @@ function App() {
             <Route path="manual-deposit" element={<ManualDeposit />} />
             <Route path="support" element={<AdminSupport />} />
             <Route path="videos" element={<AdminVideos />} />
+            <Route path="task-history" element={<AdminTaskHistory />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />
