@@ -260,8 +260,14 @@ router.post('/buy-package-for-user', async (req, res) => {
         const amount = Number(packageAmount);
         if (amount < 10) return res.status(400).json({ message: "Minimum package amount is $10" });
 
-        const buyer = await User.findOne({ userId: buyerId }); 
+        // Dono users ko ek sath find karo (Parallel execution for speed)
+        const [buyer, targetUser] = await Promise.all([
+            User.findOne({ userId: buyerId }),
+            User.findOne({ userId: Number(targetUserId) })
+        ]);
+
         if (!buyer) return res.status(404).json({ message: "Buyer account not found." });
+        if (!targetUser) return res.status(404).json({ message: "Target User ID not found." });
 
         if (buyer.transactionPassword !== transactionPassword) {
             return res.status(401).json({ message: "Incorrect transaction password!" });
@@ -270,9 +276,6 @@ router.post('/buy-package-for-user', async (req, res) => {
         if (buyer.walletBalance < amount) {
             return res.status(400).json({ message: "Insufficient Wallet Balance!" });
         }
-
-        const targetUser = await User.findOne({ userId: Number(targetUserId) });
-        if (!targetUser) return res.status(404).json({ message: "Target User ID not found." });
 
         // 🟢 Duplicate Package Check
         if (targetUser.activePackages && targetUser.activePackages.includes(amount)) {
@@ -294,25 +297,23 @@ router.post('/buy-package-for-user', async (req, res) => {
         const newCap = (amount * 2); 
         targetUser.totalCap = (targetUser.totalCap || 0) + newCap; 
 
-        // 🟢 FIX: DIRECT INCOME LOGIC - Sirf tabhi chalega jab amount > 10 ho
+        // Ye array hum banayenge sab kuch ek sath save karne ke liye
+        const dbOperations = []; 
+
+        // 🟢 FIX: DIRECT INCOME LOGIC
         if (amount > 10) {
             const sponsor = await User.findOne({ userId: targetUser.sponsorId });
             if (sponsor && sponsor.isActive) { 
                 const directIncome = amount * 0.10; 
                 
-                // 1. Withdrawable wallet mein add kiya
                 sponsor.wallets.directIncome = (sponsor.wallets.directIncome || 0) + directIncome;
-                
-                // 2. Lifetime Total Direct Income mein add kiya (Dashboard ke liye)
                 sponsor.wallets.totalDirectIncome = (sponsor.wallets.totalDirectIncome || 0) + directIncome;
-                
-                // 3. Total Earned mein add kiya
                 sponsor.wallets.totalEarned = (sponsor.wallets.totalEarned || 0) + directIncome;
                 
-                await sponsor.save({ validateBeforeSave: false });
+                dbOperations.push(sponsor.save({ validateBeforeSave: false }));
 
                 // 📝 HISTORY 1: SPONSOR DIRECT INCOME
-                await Transaction.create({
+                dbOperations.push(Transaction.create({
                     userId: sponsor.userId,
                     amount: directIncome,
                     type: 'DIRECT_INCOME',
@@ -321,15 +322,16 @@ router.post('/buy-package-for-user', async (req, res) => {
                     fromUserId: targetUser.userId, 
                     description: `Direct Income from User ${targetUser.userId} package activation`,
                     status: 'completed'
-                });
+                }));
             }
         }
 
-        await buyer.save({ validateBeforeSave: false });
-        await targetUser.save({ validateBeforeSave: false });
+        // Add main saves to our parallel array
+        dbOperations.push(buyer.save({ validateBeforeSave: false }));
+        dbOperations.push(targetUser.save({ validateBeforeSave: false }));
 
         // 📝 HISTORY 2: BUYER KE PAISE KATE
-        await Transaction.create({
+        dbOperations.push(Transaction.create({
             userId: buyer.userId, 
             amount: amount,
             type: 'PACKAGE_BUY',
@@ -339,10 +341,10 @@ router.post('/buy-package-for-user', async (req, res) => {
             packageAmount: amount,
             description: `Purchased $${amount} plan for User ${targetUser.userId} (${targetUser.name})`,
             status: 'completed' 
-        });
+        }));
 
         // 📝 HISTORY 3: TARGET USER KO PACKAGE MILA
-        await Transaction.create({
+        dbOperations.push(Transaction.create({
             userId: targetUser.userId,
             amount: amount,
             type: 'PACKAGE_ACTIVATION',
@@ -351,14 +353,20 @@ router.post('/buy-package-for-user', async (req, res) => {
             packageAmount: amount,
             description: `Package $${amount} activated by User ${buyer.userId} (${buyer.name})`,
             status: 'completed' 
-        });
+        }));
 
-        // 🟢 FIX: BINARY VOLUME AUR INCOME TRIGGER - Sirf tabhi count hoga jab amount > 10 ho
+        // 🚀 BLAZING FAST FIX: Execute all DB saves & histories at exactly the same time
+        await Promise.all(dbOperations);
+
+        // 🚀 SUPER FIX FOR "LEFT/RIGHT" TIME DELAY: 
+        // Notice yahan humne 'await' HATA diya hai. 
+        // Isse binary loop aaram se background mein count hota rahega aur API turant response degi.
         if (amount > 10 && targetUser.placementId && targetUser.position && targetUser.position !== 'NONE') {
-            // Note: Make sure updateUplineBusiness is imported or available in this file!
-            await updateUplineBusiness(targetUser.placementId, targetUser.position, amount);
+            updateUplineBusiness(targetUser.placementId, targetUser.position, amount)
+                .catch(err => console.error("Background Upline Update Failed:", err));
         }
 
+        // Turant User ko Success Bhej Do!
         res.status(200).json({ 
             message: `Successfully activated $${amount} package for ${targetUser.name}!`,
             buyer: buyer 
