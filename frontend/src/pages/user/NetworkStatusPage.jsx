@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import axios from 'axios'; // 🟢 ADDED: Axios for API call
 import { Award, Zap, Target, TrendingUp, DollarSign, BarChart3, ChevronRight, ChevronLeft } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext'; 
 
@@ -13,12 +14,35 @@ const RANKS = [
 ];
 
 const NetworkStatusPage = () => {
-  const { user } = useAuth();
+  // 🟢 FIX: Extract updateUser and token along with user
+  const { user, updateUser, token } = useAuth();
+
+  // 🟢 NEW LOGIC: Page load hote hi fresh data mangwane ke liye
+  useEffect(() => {
+    const fetchFreshProfile = async () => {
+      if (user?.userId && token) {
+        try {
+          const response = await axios.get(`/api/user/profile/${user.userId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          
+          if (response.data && response.data.user) {
+            // Context aur localStorage ko naye data se update kar do
+            updateUser(response.data.user); 
+          }
+        } catch (error) {
+          console.error("Network Status Sync Error:", error);
+        }
+      }
+    };
+
+    fetchFreshProfile();
+  }, [token]); // Jab page khulega tab chalega
 
   const leftVolume = Number(user?.binaryBusiness?.leftVolume || 0);
   const rightVolume = Number(user?.binaryBusiness?.rightVolume || 0);
   
-  // 🟢 NAYE BACKEND LOGIC KE HISAAB SE INCOME:
+  // NAYE BACKEND LOGIC KE HISAAB SE INCOME:
   const matchingIncome = Number(user?.wallets?.matchingIncome || 0);
   const rankRewardIncome = Number(user?.wallets?.rankReward || 0);
 
