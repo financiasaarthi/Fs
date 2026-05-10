@@ -15,6 +15,8 @@ const BuyPackageModal = ({ closeModal }) => {
   const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const [targetInfo, setTargetInfo] = useState(null);
+  
+  // Error dikhane ke liye state
   const [message, setMessage] = useState({ type: '', text: '' });
 
   // 🟢 Success Modal States
@@ -32,7 +34,10 @@ const BuyPackageModal = ({ closeModal }) => {
   const currentUserId = user?.userId || user?._id;
   const displayBalance = user?.wallets?.mainBalance ?? user?.walletBalance ?? user?.balance ?? 0;
 
-  // 🔍 VERIFY TARGET USER (Active packages bhi nikalenge)
+  // 🔥 IMPORTANT: Yahan apne user model ke hisab se 'promo' role ki condition lagao
+  const isPromoUser = user?.role === 'promo' || user?.isPromo === true; 
+
+  // 🔍 VERIFY TARGET USER (Sirf Normal User ke liye)
   const verifyTargetUser = async () => {
     if (!targetUserId) return;
     setVerifying(true);
@@ -44,62 +49,93 @@ const BuyPackageModal = ({ closeModal }) => {
       setTargetInfo(res.data.user);
     } catch (err) {
       setTargetInfo(null);
-      setMessage({ type: 'error', text: 'User ID not found!' });
+      setMessage({ type: 'error', text: 'User ID not found! Please check again.' });
     } finally {
       setVerifying(false);
     }
   };
 
-  // 📦 BUY PACKAGE
+  // 📦 BUY PACKAGE / PROMO TOPUP
   const handleBuyPackage = async (e) => {
     e.preventDefault();
     setMessage({ type: '', text: '' });
 
     if (!currentUserId) return setMessage({ type: 'error', text: 'Session expired. Please login again.' });
-    if (!targetUserId || !transactionPassword) return setMessage({ type: 'error', text: 'Please fill all details.' });
     
-    if (displayBalance < Number(selectedPackage)) {
+    // Validations
+    if (!transactionPassword) {
+      return setMessage({ type: 'error', text: 'Please enter your Transaction Password.' });
+    }
+
+    if (!isPromoUser && !targetUserId) {
+      return setMessage({ type: 'error', text: 'Please enter Target User ID.' });
+    }
+    
+    // Normal user balance check (Promo ke liye jaruri nahi kyuki dummy topup hai)
+    if (!isPromoUser && displayBalance < Number(selectedPackage)) {
       return setMessage({ type: 'error', text: 'Insufficient balance in Main Wallet!' });
     }
 
     setLoading(true);
     try {
-      const response = await axios.post('/api/user/buy-package-for-user', {
-        buyerId: currentUserId, 
-        targetUserId: targetUserId.trim(), 
-        packageAmount: Number(selectedPackage),
-        transactionPassword
-      }, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
+      let receipt;
 
-      // Update Context state
-      if (response.data.buyer) {
-        updateUser(response.data.buyer); 
+      // 🟢 PROMO USER FLOW (Hit dummy API)
+      if (isPromoUser) {
+        const response = await axios.post('/api/user/promo-dummy-topup', {
+          packageAmount: Number(selectedPackage),
+          transactionPassword
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        // Backend se generated random details lo
+        receipt = {
+          amount: selectedPackage,
+          targetId: response.data.generatedId,
+          targetName: response.data.name,
+          date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        };
+      } 
+      // 🔵 NORMAL USER FLOW (Hit real buy package API)
+      else {
+        const response = await axios.post('/api/user/buy-package-for-user', {
+          buyerId: currentUserId, 
+          targetUserId: targetUserId.trim(), 
+          packageAmount: Number(selectedPackage),
+          transactionPassword
+        }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+
+        if (response.data.buyer) {
+          updateUser(response.data.buyer); 
+        }
+
+        receipt = {
+          amount: selectedPackage,
+          targetId: targetUserId.trim(),
+          targetName: targetInfo?.name || "Verified User",
+          date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+        };
       }
 
       // 🟢 SUCCESS POPUP DATA SET KAREIN
-      setReceiptData({
-        amount: selectedPackage,
-        targetId: targetUserId.trim(),
-        targetName: targetInfo?.name || "Verified User",
-        date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
-      });
-      
-      // Success Modal Kholein (Pichla modal piche khada rahega)
+      setReceiptData(receipt);
       setIsSuccessOpen(true);
       
     } catch (error) {
-      setMessage({ type: 'error', text: error.response?.data?.message || 'Transaction failed.' });
+      // 🔴 ERROR POPUP/ALERT LOGIC
+      const errorMsg = error.response?.data?.message || 'Transaction failed. Please try again.';
+      setMessage({ type: 'error', text: errorMsg });
     } finally {
       setLoading(false);
     }
   };
 
-  // Jab Success Modal ka 'DONE' button click ho
   const handleSuccessConfirm = () => {
     setIsSuccessOpen(false);
-    closeModal(); // Main modal bhi band kar do
+    closeModal(); 
   };
 
   return (
@@ -114,7 +150,9 @@ const BuyPackageModal = ({ closeModal }) => {
                 <Package size={22} />
               </div>
               <div>
-                <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">Plan Activation</h2>
+                <h2 className="text-sm font-black text-gray-800 uppercase tracking-widest">
+                  {isPromoUser ? 'Generate Promo Topup' : 'Plan Activation'}
+                </h2>
                 <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">My ID: {user?.userId}</p>
               </div>
             </div>
@@ -138,54 +176,55 @@ const BuyPackageModal = ({ closeModal }) => {
 
             <form onSubmit={handleBuyPackage} className="space-y-6">
               
-              {/* Target ID Verification */}
-              <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
-                <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest ml-1">Activate For (User ID)</label>
-                <div className="flex flex-col sm:flex-row gap-2">
-                  <div className="relative flex-1">
-                    <UserCheck className="absolute left-4 top-3.5 text-gray-400" size={18} />
-                    <input 
-                      type="text"
-                      value={targetUserId}
-                      onChange={(e) => setTargetUserId(e.target.value)}
-                      className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none font-black text-sm shadow-inner transition-all"
-                      placeholder="Enter 7-Digit ID"
-                    />
+              {/* 🟢 TARGET ID SECTION - Sirf Normal User ko Dikhayenge */}
+              {!isPromoUser && (
+                <div className="bg-gray-50/50 p-4 rounded-3xl border border-gray-100">
+                  <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest ml-1">Activate For (User ID)</label>
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <div className="relative flex-1">
+                      <UserCheck className="absolute left-4 top-3.5 text-gray-400" size={18} />
+                      <input 
+                        type="text"
+                        value={targetUserId}
+                        onChange={(e) => setTargetUserId(e.target.value)}
+                        className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none font-black text-sm shadow-inner transition-all"
+                        placeholder="Enter 7-Digit ID"
+                      />
+                    </div>
+                    <button 
+                      type="button"
+                      onClick={verifyTargetUser}
+                      className="w-full sm:w-auto bg-gray-900 text-white px-6 py-3.5 sm:py-0 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95 shadow-md flex justify-center items-center"
+                    >
+                      {verifying ? <Loader2 className="animate-spin" size={16}/> : 'VERIFY'}
+                    </button>
                   </div>
-                  <button 
-                    type="button"
-                    onClick={verifyTargetUser}
-                    className="w-full sm:w-auto bg-gray-900 text-white px-6 py-3.5 sm:py-0 rounded-2xl text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all active:scale-95 shadow-md flex justify-center items-center"
-                  >
-                    {verifying ? <Loader2 className="animate-spin" size={16}/> : 'VERIFY'}
-                  </button>
-                </div>
-                
-                {/* 🟢 Verified Target Info + Unke Active Packages */}
-                {targetInfo && (
-                  <div className="mt-3 flex flex-col gap-2 animate-in fade-in">
-                    <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 rounded-2xl border border-emerald-100">
-                      <div className="flex items-center gap-2 text-emerald-700">
-                        <ShieldCheck size={16} />
-                        <span className="text-xs font-black uppercase tracking-tight">{targetInfo.name}</span>
+                  
+                  {/* Verified Target Info */}
+                  {targetInfo && (
+                    <div className="mt-3 flex flex-col gap-2 animate-in fade-in">
+                      <div className="flex justify-between items-center bg-emerald-50 px-4 py-3 rounded-2xl border border-emerald-100">
+                        <div className="flex items-center gap-2 text-emerald-700">
+                          <ShieldCheck size={16} />
+                          <span className="text-xs font-black uppercase tracking-tight">{targetInfo.name}</span>
+                        </div>
+                        <span className="bg-emerald-200 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Verified</span>
                       </div>
-                      <span className="bg-emerald-200 text-emerald-800 text-[9px] font-black px-2 py-0.5 rounded uppercase tracking-widest">Verified</span>
+                      
+                      <div className="flex justify-between items-center bg-white px-4 py-2 rounded-2xl border border-gray-200 shadow-sm">
+                        <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Currently Active Plans:</span>
+                        <span className="text-xs font-black text-indigo-600">
+                          {targetInfo.activePackages?.length > 0 
+                            ? `$${targetInfo.activePackages.join(', $')}` 
+                            : (targetInfo.currentPackage ? `$${targetInfo.currentPackage}` : 'None')}
+                        </span>
+                      </div>
                     </div>
-                    
-                    {/* Unke purane packages dikhao */}
-                    <div className="flex justify-between items-center bg-white px-4 py-2 rounded-2xl border border-gray-200 shadow-sm">
-                      <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Currently Active Plans:</span>
-                      <span className="text-xs font-black text-indigo-600">
-                        {targetInfo.activePackages?.length > 0 
-                          ? `$${targetInfo.activePackages.join(', $')}` 
-                          : (targetInfo.currentPackage ? `$${targetInfo.currentPackage}` : 'None')}
-                      </span>
-                    </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
-              {/* 🟢 PREMIUM PACKAGE BOXES (Replacing Dropdown) */}
+              {/* 🟢 PREMIUM PACKAGE BOXES */}
               <div>
                 <label className="block text-[10px] font-black text-gray-500 mb-3 uppercase tracking-widest ml-1">Select Activation Plan</label>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -223,19 +262,11 @@ const BuyPackageModal = ({ closeModal }) => {
                     type="password" 
                     value={transactionPassword}
                     onChange={(e) => setTransactionPassword(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-amber-500 outline-none font-black text-sm shadow-inner transition-all"
-                    placeholder="Enter Password"
+                    className="w-full pl-12 pr-4 py-3.5 bg-white border border-gray-200 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none font-black text-sm shadow-inner transition-all"
+                    placeholder="Enter Transaction Password"
                   />
                 </div>
               </div>
-
-              {/* Error Feedback */}
-              {message.text && message.type === 'error' && (
-                <div className="p-4 rounded-2xl text-xs font-black uppercase tracking-widest flex items-start gap-2 border bg-red-50 text-red-600 border-red-100 animate-pulse">
-                  <AlertCircle size={16} className="shrink-0 mt-0.5" />
-                  {message.text}
-                </div>
-              )}
 
               {/* Submit Button */}
               <div className="sticky bottom-0 pt-2 bg-white pb-2">
@@ -246,7 +277,7 @@ const BuyPackageModal = ({ closeModal }) => {
                     loading ? 'bg-gray-100 text-gray-400' : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-200'
                   }`}
                 >
-                  {loading ? <Loader2 className="animate-spin" size={20} /> : `Activate Plan — $${selectedPackage}`}
+                  {loading ? <Loader2 className="animate-spin" size={20} /> : (isPromoUser ? `Generate Promo — $${selectedPackage}` : `Activate Plan — $${selectedPackage}`)}
                 </button>
               </div>
 
@@ -255,7 +286,32 @@ const BuyPackageModal = ({ closeModal }) => {
         </div>
       </div>
 
+      {/* 🔴 ERROR MODAL POPUP (Naya add kiya gaya hai user ke screenshot jaisa) */}
+      {message.text && message.type === 'error' && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in">
+          <div className="bg-white w-full max-w-sm rounded-[2rem] shadow-2xl overflow-hidden border border-gray-100 flex flex-col animate-in zoom-in-95 duration-200">
+            <div className="p-6 flex flex-col items-center space-y-5">
+              
+              {/* Yeh wahi red box hai jo screenshot me tha */}
+              <div className="w-full p-4 rounded-xl text-[13px] font-bold flex items-start gap-3 border bg-red-50 text-red-600 border-red-300 shadow-sm">
+                <AlertCircle size={20} className="shrink-0 text-red-500 mt-0.5" />
+                <span className="text-left leading-snug">{message.text}</span>
+              </div>
+              
+              {/* OK Button - Modal ko close karne ke liye */}
+              <button 
+                onClick={() => setMessage({ type: '', text: '' })}
+                className="w-full py-3.5 bg-gray-900 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-black transition-all active:scale-95 shadow-md"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 🟢 UNIVERSAL SUCCESS MODAL OVERLAY */}
+    {/* 🟢 UNIVERSAL SUCCESS MODAL OVERLAY */}
       <SuccessModal
         isOpen={isSuccessOpen}
         title="Plan Activated!"

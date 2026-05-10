@@ -10,7 +10,9 @@ const Deposit = require('../models/Deposit');
 const Transaction = require('../models/Transaction');
 const TaskHistory = require('../models/TaskHistory');
   const authMiddleware = require('../middleware/authMiddleware'); 
- 
+ const DummyUser = require('../models/DummyUser.js'); // 🔥 Naya model
+ const DummyTransaction = require('../models/DummyTransaction');
+
 const { creditIncome } = require('../utils/incomeHelper');
  const auth = require('../middleware/auth');
 
@@ -368,6 +370,88 @@ router.post('/buy-package-for-user', async (req, res) => {
     }
 });
 
+
+
+router.post('/promo-dummy-topup', authMiddleware, async (req, res) => {
+    try {
+        // req.body se packageAmount aur password le rahe hain (taki normal buy-package se match kare)
+        const { packageAmount, transactionPassword } = req.body;
+        const amount = Number(packageAmount);
+
+        if (amount < 10) return res.status(400).json({ message: "Minimum package amount is $10" });
+
+        const currentUser = await User.findOne({ userId: req.user.userId });
+        if (!currentUser) return res.status(404).json({ message: "User not found." });
+
+        // 1. Transaction Password Check
+        if (!transactionPassword || transactionPassword !== currentUser.transactionPassword) {
+            return res.status(401).json({ message: "Incorrect transaction password!" });
+        }
+
+        // 🚀 MEGA LIST: First Names
+        const firstNames = [
+            "Aarav", "Abhay", "Abhinav", "Aditya", "Adarsh", "Akash", "Akhil", "Alok", "Aman", "Amar", "Amit", "Amol", "Anand", "Aniket", "Anirudh", "Ankit", "Ankur", "Anmol", "Ansh", "Anshul", "Anuj", "Anupam", "Apoorv", "Arjun", "Arnav", "Aryan", "Ashish", "Ashok", "Ashutosh", "Atul", "Ayush",
+            "Balram", "Bharat", "Bhaskar", "Bhavish", "Bhupendra", "Brijesh", "Chaitanya", "Chandan", "Chetan", "Chirag", "Daksh", "Darpan", "Deepak", "Dev", "Devendra", "Dharmendra", "Dheeraj", "Dhruv", "Digvijay", "Dilip", "Dinesh", "Divyansh", "Gajendra", "Ganesh", "Gaurav", "Gautam", "Girish", "Gopal", "Gulshan", "Gunjit",
+            "Harish", "Harsh", "Harshit", "Hemant", "Himanshu", "Hitesh", "Inder", "Ishaan", "Ishwar", "Jagdish", "Jaideep", "Jatin", "Jitendra", "Jugal", "Kabir", "Kailash", "Kamal", "Kapil", "Karan", "Kartik", "Kaushal", "Ketan", "Kiran", "Kishore", "Krishan", "Krunal", "Kuldeep", "Kunal", "Kushagra", "Laksh", "Lalit", "Lokesh",
+            "Madhav", "Mahendra", "Mahesh", "Manas", "Manish", "Manit", "Manoj", "Mayank", "Milind", "Mohit", "Mukesh", "Mukul", "Nakul", "Naman", "Narendra", "Naresh", "Navneet", "Neeraj", "Nikhil", "Nilesh", "Nishant", "Nitin", "Om", "Omprakash", "Pankaj", "Parth", "Pawan", "Pradeep", "Prafull", "Pranjal", "Prateek", "Pratosh", "Praveen", "Prayas", "Puneet", "Pushkar",
+            "Raghav", "Rahul", "Rajat", "Rajeev", "Rajesh", "Rajnish", "Rakesh", "Ram", "Ramesh", "Ranveer", "Ratan", "Ravi", "Ravindra", "Rishi", "Ritesh", "Rohan", "Rohit", "Ronak", "Rupesh", "Sachin", "Sagar", "Sahil", "Sajid", "Sameer", "Sandeep", "Sanjay", "Sanjeev", "Santosh", "Sarthak", "Satish", "Saurabh", "Shakti", "Shantanu", "Sharad", "Shashank", "Shikhar", "Shivam", "Shravan", "Shreyas", "Shubham", "Siddharth", "Somesh", "Subhash", "Sudhanshu", "Sudhir", "Sujit", "Sumit", "Sunil", "Suraj", "Suresh", "Surya", "Sushant", "Swapnil",
+            "Tanmay", "Tarun", "Tejas", "Trilok", "Tushar", "Uday", "Udit", "Ujjwal", "Umang", "Utkarsh", "Vaibhav", "Varun", "Vicky", "Vidit", "Vijay", "Vikram", "Vimal", "Vinay", "Vineet", "Vinod", "Vipin", "Viplav", "Viraaj", "Vishal", "Vishnu", "Vishwa", "Vivek", "Vyom", "Yash", "Yogesh", "Yuvraj"
+        ];
+
+        // 🚀 MEGA LIST: Last Names
+        const lastNames = [
+            "Agarwal", "Ahluwalia", "Arora", "Babu", "Bajpai", "Bakshi", "Banerjee", "Bansal", "Bhardwaj", "Bhatia", "Bhatt", "Biswas", "Bose", "Chahal", "Chakraborty", "Chatterjee", "Chauhan", "Chhabra", "Choudhary", "Chopra", "Das", "Dayal", "Deshmukh", "Devi", "Dhillon", "Dixit", "Dubey", "Dutta", "Dwivedi", "Gadhavi", "Gandhi", "Garg", "Gautam", "Gill", "Goel", "Gokhale", "Goswami", "Gowda", "Gupta", "Iyer", "Jadeja", "Jain", "Jha", "Joshi", "Kapoor", "Kashyap", "Kaur", "Khanna", "Khatri", "Kulkarni", "Kumar", "Luthra", "Mahajan", "Malhotra", "Malik", "Maurya", "Mehra", "Mehta", "Menon", "Mishra", "Mittal", "Modi", "Mukherjee", "Nair", "Ojha", "Pandey", "Pant", "Parekh", "Paswan", "Patel", "Patil", "Pillai", "Prasad", "Puri", "Rai", "Rajput", "Rao", "Rastogi", "Rathore", "Rawat", "Reddy", "Sahni", "Saini", "Saksena", "Sarkar", "Saxena", "Sen", "Sethi", "Shah", "Sharma", "Shekhawat", "Shetty", "Shinde", "Shukla", "Singh", "Singhal", "Sinha", "Somani", "Soni", "Srivastava", "Talwar", "Taneja", "Thakur", "Tiwari", "Tripathi", "Trivedi", "Tyagi", "Upadhyay", "Varma", "Vashisht", "Verma", "Vyas", "Yadav"
+        ];
+
+        // Randomly name generate karo
+        const randomFirstName = firstNames[Math.floor(Math.random() * firstNames.length)];
+        const randomLastName = lastNames[Math.floor(Math.random() * lastNames.length)];
+        const fullName = `${randomFirstName} ${randomLastName}`;
+
+        // 2. Unique ID Generation Loop (Ensure no clash with real or dummy DB)
+        let dummyId;
+        let isUnique = false;
+        while (!isUnique) {
+            dummyId = Math.floor(1000000 + Math.random() * 9000000); // 7-digit standard ID
+            const existsInReal = await User.findOne({ userId: dummyId });
+            const existsInDummy = await DummyUser.findOne({ userId: dummyId });
+            if (!existsInReal && !existsInDummy) isUnique = true;
+        }
+
+        // 3. Dummy User Create Karo
+        const newDummy = new DummyUser({
+            userId: dummyId,
+            name: fullName, 
+            email: `demo_${dummyId}@financialsaarthi.com`, // Domain updated
+            password: "demo_password_123",
+            country: "India",
+            mobile: `9${Math.floor(100000000 + Math.random() * 900000000)}`, // 10-digit random Indian number
+            topUpAmount: amount,
+            sponsorId: currentUser.userId
+        });
+        await newDummy.save();
+
+        // 4. Record Dummy Transaction
+        await DummyTransaction.create({
+            userId: currentUser.userId,
+            generatedId: dummyId,
+            amount: amount,
+            type: "promo", 
+            description: `Promo package $${amount} generated for ID ${dummyId} (${fullName})`
+        });
+
+        res.status(200).json({ 
+            success: true, 
+            message: `Successfully generated $${amount} top-up for ${fullName} (${dummyId})`,
+            generatedId: dummyId, 
+            name: fullName 
+        });
+
+    } catch (err) {
+        console.error("Promo Dummy Topup Error:", err);
+        res.status(500).json({ message: "Server Error during promo topup." });
+    }
+});
 
 
 
