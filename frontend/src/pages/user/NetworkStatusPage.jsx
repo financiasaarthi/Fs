@@ -55,7 +55,7 @@ const NetworkStatusPage = () => {
     };
 
     fetchFreshProfile();
-    fetchLiveTeamCounts(); // Ise call kar diya
+    fetchLiveTeamCounts(); 
   }, [token, user?.userId]);
 
   // Business Volumes
@@ -119,47 +119,47 @@ const NetworkStatusPage = () => {
         </div>
       </div>
 
-      {/* 🟠 SUMMARY GRID (6 Boxes Layout) */}
+      {/* 🟠 SUMMARY GRID (Mobile Optimized - Left/Right Aamne Saamne) */}
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
         
-        {/* 🟢 Box 1: Left Team Count (NOW LIVE) */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-blue-400 hover:shadow-md transition-all">
-            <div className="bg-blue-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-blue-500 mb-2 sm:mb-3"><Users size={20} className="sm:w-6 sm:h-6" /></div>
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Left Team</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-gray-800">{leftTeamCount}</h2>
+        {/* 🟢 Box 1: Left Team Count (Order 1) */}
+        <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-blue-400 hover:shadow-md transition-all order-1 lg:order-1 col-span-1">
+            <div className="bg-blue-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl text-blue-500 mb-1.5 sm:mb-3"><Users size={16} className="sm:w-6 sm:h-6" /></div>
+            <p className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Left Team</p>
+            <h2 className="text-lg sm:text-3xl font-black text-gray-800">{leftTeamCount}</h2>
         </div>
 
-        {/* Box 2: Total Matched (Center Highlight) */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center group hover:border-blue-200 transition-all col-span-2 lg:col-span-1">
-            <div className="bg-indigo-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-indigo-600 mb-2 sm:mb-3 group-hover:scale-110 transition-transform"><BarChart3 size={20} className="sm:w-6 sm:h-6" /></div>
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Matched</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-gray-800">${totalMatchedVolume.toFixed(2)}</h2>
+        {/* Box 2: Total Matched (Order 5 for Mobile, so it goes down. Full width on mobile) */}
+        <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center group hover:border-blue-200 transition-all col-span-2 lg:col-span-1 order-5 lg:order-2">
+            <div className="bg-indigo-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl text-indigo-600 mb-1.5 sm:mb-3 group-hover:scale-110 transition-transform"><BarChart3 size={16} className="sm:w-6 sm:h-6" /></div>
+            <p className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Matched</p>
+            <h2 className="text-xl sm:text-3xl font-black text-gray-800">${totalMatchedVolume.toFixed(2)}</h2>
         </div>
 
-        {/* 🟢 Box 3: Right Team Count (NOW LIVE) */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-purple-400 hover:shadow-md transition-all">
-            <div className="bg-purple-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-purple-500 mb-2 sm:mb-3"><Users size={20} className="sm:w-6 sm:h-6" /></div>
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Right Team</p>
-            <h2 className="text-2xl sm:text-3xl font-black text-gray-800">{rightTeamCount}</h2>
+        {/* 🟢 Box 3: Right Team Count (Order 2) */}
+        <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-purple-400 hover:shadow-md transition-all order-2 lg:order-3 col-span-1">
+            <div className="bg-purple-50 p-1.5 sm:p-3 rounded-lg sm:rounded-2xl text-purple-500 mb-1.5 sm:mb-3"><Users size={16} className="sm:w-6 sm:h-6" /></div>
+            <p className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Right Team</p>
+            <h2 className="text-lg sm:text-3xl font-black text-gray-800">{rightTeamCount}</h2>
         </div>
 
-        {/* Box 4: Left Carry */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-l-4 border-l-blue-500 flex flex-col justify-center">
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Left Carry Volume</p>
-            <h2 className="text-xl sm:text-2xl font-black text-blue-600">${leftVolume}</h2>
+        {/* Box 4: Left Carry (Order 3) */}
+        <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-l-4 border-l-blue-500 flex flex-col justify-center order-3 lg:order-4 col-span-1">
+            <p className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Left Carry</p>
+            <h2 className="text-lg sm:text-2xl font-black text-blue-600">${leftVolume}</h2>
         </div>
 
-        {/* Box 5: Rewards Paid */}
-        <div className="bg-emerald-600 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col items-center justify-center text-center text-white relative overflow-hidden col-span-2 lg:col-span-1">
-            <div className="absolute -right-2 -bottom-2 opacity-20 pointer-events-none"><DollarSign size={80} className="sm:w-16 sm:h-16" /></div>
-            <p className="text-[9px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest relative z-10">Rank Rewards Paid</p>
-            <h2 className="text-2xl sm:text-3xl font-black relative z-10">${rankRewardIncome}</h2>
+        {/* Box 5: Rewards Paid (Order 6 for Mobile. Full width on mobile) */}
+        <div className="bg-emerald-600 p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-xl flex flex-col items-center justify-center text-center text-white relative overflow-hidden col-span-2 lg:col-span-1 order-6 lg:order-5">
+            <div className="absolute -right-2 -bottom-2 opacity-20 pointer-events-none"><DollarSign size={60} className="sm:w-16 sm:h-16" /></div>
+            <p className="text-[8px] sm:text-[10px] font-black text-emerald-100 uppercase mb-0.5 sm:mb-1 tracking-widest relative z-10">Rewards Paid</p>
+            <h2 className="text-xl sm:text-3xl font-black relative z-10">${rankRewardIncome}</h2>
         </div>
 
-        {/* Box 6: Right Carry */}
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-r-4 border-r-purple-500 flex flex-col justify-center">
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Right Carry Volume</p>
-            <h2 className="text-xl sm:text-2xl font-black text-purple-600">${rightVolume}</h2>
+        {/* Box 6: Right Carry (Order 4) */}
+        <div className="bg-white p-3 sm:p-6 rounded-xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-r-4 border-r-purple-500 flex flex-col justify-center order-4 lg:order-6 col-span-1">
+            <p className="text-[8px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Right Carry</p>
+            <h2 className="text-lg sm:text-2xl font-black text-purple-600">${rightVolume}</h2>
         </div>
       </div>
 
