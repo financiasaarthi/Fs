@@ -6,6 +6,7 @@ const crypto = require('crypto');
 // const bcrypt = require('bcryptjs'); // You disabled this for plain text
 
 const User = require('../models/User');
+User.collection.dropIndex('username_1').catch(err => console.log("Index already dropped"));
 const Setting = require('../models/Setting'); 
 const sanitizeUser = require('../utils/sanitizeUser');
 const checkFeature = require('../middleware/checkFeatureEnabled');
@@ -67,6 +68,9 @@ const findFinalPlacement = async (parentId, side) => {
     return await findFinalPlacement(child.userId, side);
 };
 
+
+
+ 
 // ====================== SEND OTP ROUTE ======================
 // ====================== SEND OTP ======================
 router.post('/send-otp', async (req, res) => {

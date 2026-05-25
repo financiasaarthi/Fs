@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   // 🟢 Basic Identity & Auth
   userId: { type: Number, required: true, unique: true, index: true }, 
-  username: { type: String, required: true, unique: true },
+  username: { type: String, required: true },
   name: { type: String, required: true },
   email: { type: String, required: true, unique: true, index: true },
   mobile: { type: String, required: true, unique: true }, 
@@ -42,7 +42,9 @@ const userSchema = new mongoose.Schema({
   binaryBusiness: {
     leftVolume: { type: Number, default: 0 },
     rightVolume: { type: Number, default: 0 },
-    totalPairsMatched: { type: Number, default: 0 }
+    totalPairsMatched: { type: Number, default: 0 },
+    leftTeamCount: { type: Number, default: 0 },  // ✅ AB YE ANDAR HAI
+    rightTeamCount: { type: Number, default: 0 }
   },
 
   todayBinaryIncome: { type: Number, default: 0 },

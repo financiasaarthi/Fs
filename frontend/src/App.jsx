@@ -22,6 +22,8 @@ import BinaryHistory from './pages/user/BinaryHistory';
 import NetworkStatusPage from './pages/user/NetworkStatusPage';
 import DirectTeam from './pages/user/DirectTeam';
 import AllTeam from './pages/user/AllTeam';
+import LeftTeam from './pages/user/LeftTeam';
+import RightTeam from './pages/user/RightTeam';
 import TransferFunds from './pages/user/TransferFunds';
 import DepositHistory from './pages/user/DepositHistory';
 import PackageHistory from './pages/user/PackageHistory';
@@ -140,6 +142,8 @@ function App() {
           <Route path="/direct-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><DirectTeam /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/all-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><AllTeam /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/transfer" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><TransferFunds /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/left-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><LeftTeam /></UserLayout> : <Navigate to="/login" replace />} />
+          <Route path="/right-team" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><RightTeam /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/package-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar} ><PackageHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/binary-history" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><BinaryHistory /></UserLayout> : <Navigate to="/login" replace />} />
           <Route path="/all-transactions" element={user ? <UserLayout isSidebarOpen={isSidebarOpen} toggleSidebar={toggleSidebar}><AllTransactions /></UserLayout> : <Navigate to="/login" replace />} />

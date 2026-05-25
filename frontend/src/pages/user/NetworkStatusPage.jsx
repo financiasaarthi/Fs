@@ -1,6 +1,6 @@
-import React, { useEffect } from 'react';
-import axios from 'axios'; // 🟢 ADDED: Axios for API call
-import { Award, Zap, Target, TrendingUp, DollarSign, BarChart3, ChevronRight, ChevronLeft } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+import { Award, Zap, Target, TrendingUp, DollarSign, BarChart3, ChevronRight, ChevronLeft, Users } from 'lucide-react'; 
 import { useAuth } from '../../context/AuthContext'; 
 
 const RANKS = [
@@ -14,10 +14,12 @@ const RANKS = [
 ];
 
 const NetworkStatusPage = () => {
-  // 🟢 FIX: Extract updateUser and token along with user
   const { user, updateUser, token } = useAuth();
+  
+  // 🟢 NAYE STATES LIVE COUNT KE LIYE
+  const [leftTeamCount, setLeftTeamCount] = useState(0);
+  const [rightTeamCount, setRightTeamCount] = useState(0);
 
-  // 🟢 NEW LOGIC: Page load hote hi fresh data mangwane ke liye
   useEffect(() => {
     const fetchFreshProfile = async () => {
       if (user?.userId && token) {
@@ -27,7 +29,6 @@ const NetworkStatusPage = () => {
           });
           
           if (response.data && response.data.user) {
-            // Context aur localStorage ko naye data se update kar do
             updateUser(response.data.user); 
           }
         } catch (error) {
@@ -36,18 +37,38 @@ const NetworkStatusPage = () => {
       }
     };
 
-    fetchFreshProfile();
-  }, [token]); // Jab page khulega tab chalega
+    // 🟢 NAYA LOGIC: Live Team Count Mangaane ke liye
+    const fetchLiveTeamCounts = async () => {
+      if (user?.userId && token) {
+        try {
+          // Fetch Left Team
+          const leftRes = await axios.post('/api/user/my-team', { userId: user.userId, type: 'left' }, { headers: { Authorization: `Bearer ${token}` }});
+          setLeftTeamCount(Array.isArray(leftRes.data) ? leftRes.data.length : 0);
 
+          // Fetch Right Team
+          const rightRes = await axios.post('/api/user/my-team', { userId: user.userId, type: 'right' }, { headers: { Authorization: `Bearer ${token}` }});
+          setRightTeamCount(Array.isArray(rightRes.data) ? rightRes.data.length : 0);
+        } catch (error) {
+          console.error("Live Team Count Error:", error);
+        }
+      }
+    };
+
+    fetchFreshProfile();
+    fetchLiveTeamCounts(); // Ise call kar diya
+  }, [token, user?.userId]);
+
+  // Business Volumes
   const leftVolume = Number(user?.binaryBusiness?.leftVolume || 0);
   const rightVolume = Number(user?.binaryBusiness?.rightVolume || 0);
-  
-  // NAYE BACKEND LOGIC KE HISAAB SE INCOME:
-  const matchingIncome = Number(user?.wallets?.matchingIncome || 0);
+
+  // Wallet Incomes
+  const matchingIncome = Number(user?.wallets?.matchingIncome || 0); 
   const rankRewardIncome = Number(user?.wallets?.rankReward || 0);
 
-  // Matching turnover calculation ($1 income = $10 business)
-  const totalMatchedVolume = (matchingIncome * 10);
+  // Rank calculation using lifetime income
+  const lifetimeMatchedIncome = Number(user?.wallets?.totalMatchingIncome || matchingIncome);
+  const totalMatchedVolume = (lifetimeMatchedIncome * 10);
 
   // Current Rank Index Calculation
   let currentIdx = 0;
@@ -98,25 +119,47 @@ const NetworkStatusPage = () => {
         </div>
       </div>
 
-      {/* 🟠 SUMMARY GRID */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
+      {/* 🟠 SUMMARY GRID (6 Boxes Layout) */}
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+        
+        {/* 🟢 Box 1: Left Team Count (NOW LIVE) */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-blue-400 hover:shadow-md transition-all">
+            <div className="bg-blue-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-blue-500 mb-2 sm:mb-3"><Users size={20} className="sm:w-6 sm:h-6" /></div>
+            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Left Team</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-800">{leftTeamCount}</h2>
+        </div>
+
+        {/* Box 2: Total Matched (Center Highlight) */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center group hover:border-blue-200 transition-all col-span-2 lg:col-span-1">
-            <div className="bg-blue-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-blue-600 mb-2 sm:mb-3 group-hover:scale-110 transition-transform"><BarChart3 size={20} className="sm:w-6 sm:h-6" /></div>
+            <div className="bg-indigo-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-indigo-600 mb-2 sm:mb-3 group-hover:scale-110 transition-transform"><BarChart3 size={20} className="sm:w-6 sm:h-6" /></div>
             <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Total Matched</p>
             <h2 className="text-2xl sm:text-3xl font-black text-gray-800">${totalMatchedVolume.toFixed(2)}</h2>
         </div>
+
+        {/* 🟢 Box 3: Right Team Count (NOW LIVE) */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center border-t-4 border-t-purple-400 hover:shadow-md transition-all">
+            <div className="bg-purple-50 p-2 sm:p-3 rounded-xl sm:rounded-2xl text-purple-500 mb-2 sm:mb-3"><Users size={20} className="sm:w-6 sm:h-6" /></div>
+            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase tracking-widest">Right Team</p>
+            <h2 className="text-2xl sm:text-3xl font-black text-gray-800">{rightTeamCount}</h2>
+        </div>
+
+        {/* Box 4: Left Carry */}
         <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-l-4 border-l-blue-500 flex flex-col justify-center">
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Left Carry</p>
+            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Left Carry Volume</p>
             <h2 className="text-xl sm:text-2xl font-black text-blue-600">${leftVolume}</h2>
         </div>
-        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-l-4 lg:border-l-0 lg:border-r-4 border-l-purple-500 lg:border-r-purple-500 flex flex-col justify-center">
-            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Right Carry</p>
-            <h2 className="text-xl sm:text-2xl font-black text-purple-600">${rightVolume}</h2>
-        </div>
+
+        {/* Box 5: Rewards Paid */}
         <div className="bg-emerald-600 p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-xl flex flex-col items-center justify-center text-center text-white relative overflow-hidden col-span-2 lg:col-span-1">
             <div className="absolute -right-2 -bottom-2 opacity-20 pointer-events-none"><DollarSign size={80} className="sm:w-16 sm:h-16" /></div>
-            <p className="text-[9px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest relative z-10">Rewards Paid</p>
+            <p className="text-[9px] sm:text-[10px] font-black text-emerald-100 uppercase mb-1 tracking-widest relative z-10">Rank Rewards Paid</p>
             <h2 className="text-2xl sm:text-3xl font-black relative z-10">${rankRewardIncome}</h2>
+        </div>
+
+        {/* Box 6: Right Carry */}
+        <div className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl shadow-sm border border-gray-100 text-center border-r-4 border-r-purple-500 flex flex-col justify-center">
+            <p className="text-[9px] sm:text-[10px] font-black text-gray-400 uppercase mb-1 sm:mb-2 tracking-widest">Right Carry Volume</p>
+            <h2 className="text-xl sm:text-2xl font-black text-purple-600">${rightVolume}</h2>
         </div>
       </div>
 

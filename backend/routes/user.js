@@ -120,7 +120,8 @@ const updateUplineBusiness = async (currentPlacementId, position, amount) => {
                 }
 
                 // Plus-Plus Rank Logic (Same as before)
-                const totalMatchedTurnover = parent.wallets.matchingIncome * 10;
+// ✅ SAHI CODE: Ye lifetime total earning use karega
+                const totalMatchedTurnover = (parent.wallets.totalMatchingIncome || 0) * 10;
                 for (const rank of RANK_RULES) {
                     const currentRankIdx = RANK_RULES.findIndex(r => r.name === parent.currentRank);
                     const potentialRankIdx = RANK_RULES.findIndex(r => r.name === rank.name);
@@ -1124,36 +1125,93 @@ router.get('/direct-team/:userId', async (req, res) => {
 });
 
 // 3. My Team (POST format for dashboard)
+ 
+// 👥 ROUTE: POST /api/user/my-team
 router.post('/my-team', async (req, res) => {
     try {
         const { userId, type } = req.body;
+        const rootId = Number(userId);
+
         const userDoc = await User.findOne({ 
-            $or: [{ userId: mongoose.isValidObjectId(userId) ? userId : null }, { userId: userId }] 
+            $or: [{ userId: mongoose.isValidObjectId(userId) ? userId : null }, { userId: rootId }] 
         });
+
         if (!userDoc) return res.status(404).json({ message: "User not found" });
 
+        // 🟢 1. DIRECT TEAM (Sponsor id ke base par)
         if (type === 'direct') {
             const directs = await User.find({ sponsorId: userDoc.userId }).sort({ createdAt: -1 });
             return res.status(200).json(directs);
         }
 
-        const fullTeam = await User.aggregate([
-            { $match: { userId: userDoc.userId } },
-            {
-                $graphLookup: {
-                    from: "users",
-                    startWith: "$userId",
-                    connectFromField: "userId",
-                    connectToField: "sponsorId",
-                    as: "downline",
-                    maxDepth: 50
+        // 🚀 SUPER FAST IN-MEMORY TREE LOGIC (For All, Left, Right)
+        const allUsers = await User.find({}).lean();
+        
+        // Baccho ko unke Parent (PlacementId) ke under map karna
+        const childrenMap = new Map(); 
+        allUsers.forEach(u => {
+            if (u.placementId) {
+                if (!childrenMap.has(u.placementId)) childrenMap.set(u.placementId, []);
+                childrenMap.get(u.placementId).push(u);
+            }
+        });
+
+        // Helper Function: Kisi bhi User ID ka poora downline (flat array) nikalna
+        const getFlatDownline = (startId) => {
+            const result = [];
+            const queue = [startId]; // BFS queue for fast traversal
+            
+            while (queue.length > 0) {
+                const currentId = queue.shift();
+                const children = childrenMap.get(currentId) || [];
+                
+                for (const child of children) {
+                    result.push(child);
+                    queue.push(child.userId);
                 }
             }
-        ]);
-        res.status(200).json(fullTeam.length > 0 ? fullTeam[0].downline : []);
-    } catch (err) { res.status(500).json({ message: "Error" }); }
+            return result;
+        };
+
+        // 🟢 2. ALL TEAM (Poora Binary Downline)
+        if (type === 'all') {
+            const allTeam = getFlatDownline(userDoc.userId);
+            // Naye log upar dikhane ke liye sort kar rahe hain
+            allTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return res.status(200).json(allTeam);
+        }
+
+        // 🟢 3. LEFT YA RIGHT TEAM
+        if (type === 'left' || type === 'right') {
+            const immediateChildren = childrenMap.get(userDoc.userId) || [];
+            
+            // Sabse pehle immediate left ya right bacche ko dhundo
+            const targetChild = immediateChildren.find(c => c.position && c.position.toUpperCase() === type.toUpperCase());
+
+            // Agar left/right me koi nahi juda hai, toh empty array bhej do
+            if (!targetChild) {
+                return res.status(200).json([]);
+            }
+
+            // Target child ka poora downline nikalo
+            const downline = getFlatDownline(targetChild.userId);
+
+            // Final Array (Root child + Uski poori team)
+            const fullSideTeam = [targetChild, ...downline];
+            
+            fullSideTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            return res.status(200).json(fullSideTeam);
+        }
+
+        return res.status(400).json({ message: "Invalid type parameter" });
+
+    } catch (err) {
+        console.error("Team Fetch Error:", err);
+        res.status(500).json({ message: "Server Error" });
+    }
 });
 
+ 
 // 4. Activate Package
 router.post('/activate-package', async (req, res) => {
     try {

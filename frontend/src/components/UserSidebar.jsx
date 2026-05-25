@@ -4,7 +4,7 @@ import {
   Home, PlaySquare, Users, Wallet, ArrowDownToLine, 
   Network, TrendingUp, Award, Layers, Send, Package, 
   RefreshCw, History, LayoutList, ShieldCheck, LogOut,
-  UserPlus, ListVideo // 🟢 NAYA FIX: Task History ke liye naya icon
+  UserPlus, ListVideo, ArrowLeft, ArrowRight // 🟢 FIX: ArrowLeft, ArrowRight add kiye Left/Right Team ke liye
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext'; 
 
@@ -27,15 +27,17 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
     };
   }, [isOpen, toggleSidebar]);
 
-  // 🚀 Menu Items Array (Updated with Task History)
+  // 🚀 Menu Items Array (Updated with Left & Right Team)
   const menuItems = [
     { name: 'Dashboard', path: '/dashboard', icon: <Home size={20} /> },
     { name: 'Task Center', path: '/tasks', icon: <PlaySquare size={20} /> },
-    { name: 'Task History', path: '/task-history', icon: <ListVideo size={20} /> }, // 🟢 TASK HISTORY ADD KIYA
+    { name: 'Task History', path: '/task-history', icon: <ListVideo size={20} /> }, 
     
     // -- Team Section --
     { name: 'Direct Team', path: '/direct-team', icon: <Users size={20} /> },
     { name: 'All Team', path: '/all-team', icon: <Layers size={20} /> },
+    { name: 'Left Team', path: '/left-team', icon: <ArrowLeft size={20} /> }, // 🟢 LEFT TEAM ADDED
+    { name: 'Right Team', path: '/right-team', icon: <ArrowRight size={20} /> }, // 🟢 RIGHT TEAM ADDED
     { name: 'Network Tree', path: '/network-tree', icon: <Network size={20} /> }, 
     
     // -- Business & Income Section --
@@ -86,8 +88,8 @@ const UserSidebar = ({ isOpen, toggleSidebar }) => {
             
             {menuItems.map((item, index) => {
               const isActive = location.pathname === item.path;
-              // 🟢 FIX: Array ke size badhne ki wajah se index number wapas update kiye (3, 6, 10, 12)
-              const isNewSection = index === 3 || index === 6 || index === 10 || index === 12;
+              // 🟢 FIX: Array me 2 naye items aane se indexes adjust kar diye hain taaki line sahi jagah aaye (3, 8, 12, 14)
+              const isNewSection = index === 3 || index === 8 || index === 12 || index === 14;
 
               return (
                 <React.Fragment key={item.name}>
