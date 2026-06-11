@@ -158,8 +158,7 @@ const AllTeam = () => {
                   {/* 🔥 Separate Columns */}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">User ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Mobile</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sponsor</th>
+                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sponsor</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tree Side</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Active Plan</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Join Date</th>
@@ -191,25 +190,7 @@ const AllTeam = () => {
                         {member.userId || "-"}
                       </td>
 
-                      {/* Mobile + WhatsApp Click */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {member.mobile ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-800">{member.mobile}</span>
-                            <a 
-                              href={`https://wa.me/${member.mobile}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="bg-emerald-100 p-1.5 rounded-full text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageCircle size={14} /> 
-                            </a>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </td>
+                    
 
                       {/* Sponsor */}
                       <td className="px-4 py-3 text-center whitespace-nowrap">

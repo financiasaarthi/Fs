@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useAuth } from '../../context/AuthContext'; 
 import { X, Wallet, Lock, ArrowRightLeft, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-// 🟢 Success Modal Import
 import SuccessModal from '../SuccessModal'; 
 
 const IncomeToWalletModal = ({ isOpen, onClose }) => {
@@ -13,13 +12,11 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
 
-    // 🟢 Success Modal States
     const [isSuccessOpen, setIsSuccessOpen] = useState(false);
     const [receiptData, setReceiptData] = useState(null);
 
     if (!isOpen) return null;
 
-    // 🟢 Wallets configuration
     const walletOptions = [
         { id: 'taskIncome', label: 'Task Income', balance: user?.wallets?.taskIncome || 0 },
         { id: 'directIncome', label: 'Direct Income', balance: user?.wallets?.directIncome || 0 },
@@ -34,10 +31,19 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
         
         if (!user || !user.userId) return setError("Session expired. Please login.");
 
+        // 🟢 FIX: Check for Minimum $30 Package on Frontend
+        if (!user.currentPackage || user.currentPackage < 30) {
+            return setError("You need an active package of at least $30 to convert funds.");
+        }
+
+        // 🟢 FIX: Minimum $10 Transfer Condition
+        if (totalSelected < 10) {
+            return setError("Minimum transfer amount is $10.");
+        }
+
         setLoading(true); 
         setError(''); 
 
-        // Filter out empty or zero amounts
         const items = Object.entries(amounts)
             .filter(([_, val]) => Number(val) > 0)
             .map(([id, val]) => ({ source: id, amount: Number(val) }));
@@ -50,19 +56,17 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
 
         try {
             const res = await axios.post('/api/user/income-to-wallet', {
-                userId: user.userId, // 🎯 Numeric 7-digit ID
+                userId: user.userId,
                 items,
                 transactionPassword
             }, {
                 headers: { Authorization: `Bearer ${token}` } 
             });
 
-            // ✅ Update Context (Instant UI Sync)
             if (res.data.user) {
                 updateUser(res.data.user);
             }
 
-            // 🟢 SET SUCCESS RECEIPT DATA
             setReceiptData({
                 total: totalSelected.toFixed(2),
                 breakdown: items,
@@ -70,7 +74,6 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                 date: new Date().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
             });
 
-            // Open Success Modal
             setIsSuccessOpen(true);
             
         } catch (err) {
@@ -86,7 +89,6 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
         setError(''); 
     };
 
-    // Jab Success Modal ka 'DONE' button click ho
     const handleSuccessConfirm = () => {
         setIsSuccessOpen(false);
         reset();
@@ -98,7 +100,6 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
                 <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 border-t-4 border-t-emerald-500 animate-in zoom-in duration-200 relative max-h-[90vh] flex flex-col">
                     
-                    {/* Header Section */}
                     <div className="p-6 flex justify-between items-center border-b border-gray-50 bg-gray-50/50 shrink-0">
                         <div className="flex items-center gap-3">
                             <div className="bg-emerald-100 p-2.5 rounded-xl text-emerald-600 shadow-sm">
@@ -116,14 +117,13 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
 
                     <div className="p-6 overflow-y-auto custom-scroll space-y-5 bg-gray-50/30">
                         
-                        {/* Visual Balance Display */}
                         <div className="bg-gradient-to-br from-emerald-50 to-white border border-emerald-100 p-4 rounded-2xl mb-2 flex justify-between items-center shadow-sm">
                             <div className="flex items-center gap-2">
                                 <Wallet size={18} className="text-emerald-600" />
                                 <span className="text-[10px] font-black text-emerald-700 uppercase tracking-widest">Main Wallet</span>
                             </div>
                             <span className="text-2xl font-black text-emerald-600">
-                                ${(user?.wallets?.mainBalance || 0).toFixed(2)}
+                                ${(user?.wallets?.mainBalance || user?.walletBalance || 0).toFixed(2)}
                             </span>
                         </div>
 
@@ -136,7 +136,6 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
 
                         <form onSubmit={handleTransfer} className="space-y-4">
                             
-                            {/* Wallets List */}
                             <div className="space-y-3">
                                 <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest ml-1">Select Income Sources</label>
                                 {walletOptions.map((w) => (
@@ -161,7 +160,6 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                                 ))}
                             </div>
 
-                            {/* Password & Submit */}
                             <div className="pt-4 space-y-4 border-t border-gray-100 mt-4">
                                 <div>
                                     <label className="block text-[10px] font-black text-gray-500 mb-2 uppercase tracking-widest ml-1">Security Password</label>
@@ -178,10 +176,13 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                                     </div>
                                 </div>
 
+                                
+
                                 <div className="sticky bottom-0 pt-2 pb-2 bg-gray-50/30">
                                     <button 
                                         type="submit" 
-                                        disabled={loading || totalSelected <= 0}
+                                        // 🟢 FIX: Button disabled if amount is less than 10
+                                        disabled={loading || totalSelected < 10}
                                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                                     >
                                         {loading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle2 size={18} />}
@@ -194,7 +195,7 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                 </div>
             </div>
 
-            {/* 🟢 UNIVERSAL SUCCESS MODAL OVERLAY */}
+            {/* SUCCESS MODAL */}
             <SuccessModal
                 isOpen={isSuccessOpen}
                 title="Conversion Successful!"
@@ -203,11 +204,8 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                 type="success"
                 onConfirm={handleSuccessConfirm}
             >
-                {/* 🧾 Detailed Receipt Box */}
                 {receiptData && (
                 <div className="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-3 text-left shadow-sm">
-                    
-                    {/* Amount Breakdown */}
                     <div className="mb-4">
                         <p className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2 border-b border-gray-200 pb-1">Fund Breakdown</p>
                         <div className="space-y-1.5">
@@ -219,12 +217,10 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                             ))}
                         </div>
                     </div>
-
                     <div className="flex justify-between items-center border-t border-gray-200 pt-3">
                         <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Total Moved</span>
                         <span className="font-black text-emerald-600 text-xl">+${receiptData.total}</span>
                     </div>
-
                     <div className="flex justify-between items-center border-t border-dashed border-gray-200 pt-3 mt-1">
                         <span className="text-[9px] font-black text-gray-400 uppercase tracking-[0.2em]">Transaction Date</span>
                         <span className="font-bold text-gray-500 text-[10px] uppercase">{receiptData.date}</span>

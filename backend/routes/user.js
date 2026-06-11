@@ -608,6 +608,11 @@ router.post('/income-to-wallet', async (req, res) => {
         const user = await User.findOne({ userId: numericUserId });
         if (!user) return res.status(404).json({ message: "User not found!" });
 
+        // 🟢 FIX: Minimum $30 Active Package Condition
+        if (!user.currentPackage || user.currentPackage < 30) {
+            return res.status(400).json({ message: "You must have an active package of at least $30 to convert funds." });
+        }
+
         // 2. Password Check
         if (user.transactionPassword !== transactionPassword) {
             return res.status(401).json({ message: "Invalid security password!" });
@@ -628,8 +633,9 @@ router.post('/income-to-wallet', async (req, res) => {
             totalToTransfer += amount;
         }
 
-        if (totalToTransfer < 1) {
-            return res.status(400).json({ message: "Minimum transfer amount is $1" });
+        // 🟢 FIX: Minimum $10 Transfer Condition
+        if (totalToTransfer < 10) {
+            return res.status(400).json({ message: "Minimum transfer amount is $10" });
         }
 
         // 4. Execution: Sub-wallets se kaato aur Main Wallet mein dalo
@@ -779,12 +785,11 @@ router.post('/transfer', async (req, res) => {
         const { senderId, receiverId, amount, transactionPassword } = req.body;
         const transferAmount = Number(amount);
 
-        // 🟢 FIX: Minimum $10 Transfer Limit Add Kiya Hai
+        // 1. Strict Amount Check (Minimum $10)
         if (isNaN(transferAmount) || transferAmount < 10) {
             return res.status(400).json({ message: "Minimum transfer amount is $10" });
         }
 
-        // 1. Strict Number Check for IDs
         const numericSenderId = Number(senderId);
         const numericReceiverId = Number(receiverId);
 
@@ -808,7 +813,32 @@ router.post('/transfer', async (req, res) => {
         const receiver = await User.findOne({ userId: numericReceiverId });
         if (!receiver) return res.status(404).json({ message: "Receiver ID does not exist." });
 
-        // 4. Atomic Execution (Paise ka len-den)
+        // 🟢 FIX: DOWNLINE ONLY CHECK 
+        // Admin user can transfer to anyone (Optional check, you can remove 'sender.role === "admin"' if admin is also restricted)
+        if (sender.role !== 'admin') {
+            const isDownline = await User.aggregate([
+                { $match: { userId: sender.userId } },
+                {
+                    $graphLookup: {
+                        from: "users",
+                        startWith: "$userId",
+                        connectFromField: "userId",
+                        connectToField: "sponsorId", // Ya 'placementId' agar aap placement check karna chahte hain
+                        as: "downlineNetwork",
+                        maxDepth: 100 // Check up to 100 levels deep
+                    }
+                }
+            ]);
+
+            const networkList = isDownline.length > 0 ? isDownline[0].downlineNetwork : [];
+            const userInNetwork = networkList.find(u => u.userId === receiver.userId);
+
+            if (!userInNetwork) {
+                return res.status(403).json({ message: "Transfer is only allowed to your Directs and Downline members." });
+            }
+        }
+
+        // 4. Atomic Execution
         sender.walletBalance -= transferAmount;
         receiver.walletBalance += transferAmount;
 
@@ -841,7 +871,7 @@ router.post('/transfer', async (req, res) => {
 
         res.status(200).json({ 
             message: `Successfully transferred $${transferAmount} to ${receiver.name}`,
-            user: sender // Frontend balance update karne ke liye
+            user: sender 
         });
 
     } catch (error) {
@@ -932,6 +962,11 @@ router.post('/withdraw', async (req, res) => {
         const user = await User.findOne({ userId: numericUserId });
         if (!user) return res.status(404).json({ message: "User not found!" });
 
+        // 🟢 FIX: Minimum $30 Active Package Condition
+        if (!user.currentPackage || user.currentPackage < 30) {
+            return res.status(400).json({ message: "You must have an active package of at least $30 to withdraw funds." });
+        }
+
         // 2. Password Check
         if (user.transactionPassword !== transactionPassword) {
             return res.status(401).json({ message: "Incorrect security password!" });
@@ -964,9 +999,9 @@ router.post('/withdraw', async (req, res) => {
             totalGrossAmount += amount;
         }
 
-        // 4. Minimum Withdrawal Check
-        if (totalGrossAmount < 5) { 
-            return res.status(400).json({ message: "Minimum total withdrawal is $5" });
+        // 🟢 FIX: Minimum Withdrawal Check (Changed to $10)
+        if (totalGrossAmount < 10) { 
+            return res.status(400).json({ message: "Minimum total withdrawal is $10" });
         }
 
         // 🔥 5. Fee Calculation (Exactly 10%)
@@ -1005,8 +1040,8 @@ router.post('/withdraw', async (req, res) => {
             name: user.name,
             userDisplayId: String(user.userId),
             gross: totalGrossAmount, 
-            fee: feeAmount,         
-            net: netAmount,         
+            fee: feeAmount,        
+            net: netAmount,        
             amount: netAmount,      
             source: primarySource,  
             walletAddress: walletAddress || user.walletAddress,
