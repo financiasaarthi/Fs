@@ -999,17 +999,27 @@ router.post('/withdraw', async (req, res) => {
             totalGrossAmount += amount;
         }
 
-        // 🟢 FIX: Minimum Withdrawal Check (Changed to $10)
+        // 🟢 FIX: Minimum Withdrawal Check
         if (totalGrossAmount < 10) { 
             return res.status(400).json({ message: "Minimum total withdrawal is $10" });
         }
 
-        // 🔥 5. Fee Calculation (Exactly 10%)
+        // 🔥 5. 70% / 30% Split & Fee Calculation (10% on both)
         const feePercentage = 10;
-        const feeAmount = (totalGrossAmount * feePercentage) / 100;
-        const netAmount = totalGrossAmount - feeAmount;
 
-        // 6. Deduct Balance from Wallets
+        // --- 70% Withdrawal Part ---
+        const withdrawGross = totalGrossAmount * 0.70;
+        const withdrawFee = (withdrawGross * feePercentage) / 100;
+        const withdrawNet = withdrawGross - withdrawFee;
+
+        // --- 30% Wallet Reinvest Part ---
+        const walletGross = totalGrossAmount * 0.30;
+        const walletFee = (walletGross * feePercentage) / 100;
+        const walletNet = walletGross - walletFee;
+
+        const totalFeeDeducted = withdrawFee + walletFee;
+
+        // 6. Deduct Balance from Source Wallets
         for (let item of withdrawItems) {
             const val = item.amount || item.amt || 0;
             const amount = Number(val);
@@ -1024,6 +1034,9 @@ router.post('/withdraw', async (req, res) => {
             }
         }
         
+        // 🟢 NEW: Add 30% Net Amount back to Main Wallet
+        user.walletBalance = (user.walletBalance || 0) + walletNet;
+
         // Update user stats
         if (user.wallets) {
             user.wallets.totalWithdrawn = (user.wallets.totalWithdrawn || 0) + totalGrossAmount;
@@ -1031,6 +1044,7 @@ router.post('/withdraw', async (req, res) => {
         await user.save({ validateBeforeSave: false });
 
         // 🟢 7. SAVE TO WITHDRAWAL TABLE (Admin Dashboard ke liye)
+        // Admin ko sirf 70% wala hissa dikhega taaki use pata rahe kitna pay karna hai
         const primarySource = withdrawItems.length > 1 
             ? 'MULTI WALLET' 
             : String(withdrawItems[0]?.source || 'UNKNOWN').replace('_', ' ').toUpperCase();
@@ -1039,38 +1053,48 @@ router.post('/withdraw', async (req, res) => {
             userId: user.userId,
             name: user.name,
             userDisplayId: String(user.userId),
-            gross: totalGrossAmount, 
-            fee: feeAmount,        
-            net: netAmount,        
-            amount: netAmount,      
+            gross: withdrawGross, 
+            fee: withdrawFee,        
+            net: withdrawNet,        
+            amount: withdrawNet,      
             source: primarySource,  
             walletAddress: walletAddress || user.walletAddress,
             status: 'pending' 
         });
 
         // 🟢 8. SAVE TO TRANSACTION TABLE (User History ke liye)
-        
-        // 🛠️ YAHAN FIX KIYA HAI: 'directIncome' ko 'direct_income' mein badalna
         let walletTypeToSave = 'multi_wallet';
         if (withdrawItems.length === 1) {
             let sourceStr = withdrawItems[0].source || 'main_wallet';
-            // Regex to convert camelCase to snake_case
             walletTypeToSave = sourceStr.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
         }
 
+        // Transaction 1: Total Debit (100% Request)
         await Transaction.create({
             userId: user.userId,
             amount: totalGrossAmount,     
             grossAmount: totalGrossAmount,
             type: 'WITHDRAWAL',           
             transactionType: 'debit',
-            walletType: walletTypeToSave, // 👈 Ab Mongoose error nahi dega
-            description: `Withdrawal request for $${totalGrossAmount.toFixed(2)} (Net: $${netAmount.toFixed(2)} after 10% Fee)`,
+            walletType: walletTypeToSave,
+            description: `Withdrawal request: 70% ($${withdrawNet.toFixed(2)}) Cashout, 30% ($${walletNet.toFixed(2)}) Auto-Wallet (Total Fee: $${totalFeeDeducted.toFixed(2)})`,
             status: 'pending' 
         });
 
+        // Transaction 2: 30% Credit to Main Wallet
+        await Transaction.create({
+            userId: user.userId,
+            amount: walletNet,     
+            grossAmount: walletGross,
+            type: 'WALLET_FUND',           
+            transactionType: 'credit',
+            walletType: 'main_wallet',
+            description: `30% Auto-Credit from Withdrawal (After 10% Fee)`,
+            status: 'completed' 
+        });
+
         res.status(200).json({ 
-            message: `Withdrawal request for $${netAmount.toFixed(2)} submitted! ($${feeAmount.toFixed(2)} Fee deducted).`,
+            message: `Withdrawal requested! Cashout: $${withdrawNet.toFixed(2)}. Transferred to Wallet: $${walletNet.toFixed(2)}.`,
             user: user 
         });
 
@@ -1167,75 +1191,120 @@ router.post('/my-team', async (req, res) => {
         const { userId, type } = req.body;
         const rootId = Number(userId);
 
-        const userDoc = await User.findOne({ 
-            $or: [{ userId: mongoose.isValidObjectId(userId) ? userId : null }, { userId: rootId }] 
-        });
+        if (!rootId) return res.status(400).json({ message: "Invalid User ID" });
 
-        if (!userDoc) return res.status(404).json({ message: "User not found" });
-
-        // 🟢 1. DIRECT TEAM (Sponsor id ke base par)
+        // 🟢 1. DIRECT TEAM (Sponsor id ke base par - SUPER FAST)
         if (type === 'direct') {
-            const directs = await User.find({ sponsorId: userDoc.userId }).sort({ createdAt: -1 });
+            const directs = await User.find({ sponsorId: rootId })
+                // Sirf Frontend ki zaroorat ka data bhejo (Payload kam karne ke liye)
+                .select('name userId sponsorId position isActive currentPackage createdAt')
+                .sort({ createdAt: -1 })
+                .lean();
             return res.status(200).json(directs);
         }
 
-        // 🚀 SUPER FAST IN-MEMORY TREE LOGIC (For All, Left, Right)
-        const allUsers = await User.find({}).lean();
-        
-        // Baccho ko unke Parent (PlacementId) ke under map karna
-        const childrenMap = new Map(); 
-        allUsers.forEach(u => {
-            if (u.placementId) {
-                if (!childrenMap.has(u.placementId)) childrenMap.set(u.placementId, []);
-                childrenMap.get(u.placementId).push(u);
-            }
-        });
-
-        // Helper Function: Kisi bhi User ID ka poora downline (flat array) nikalna
-        const getFlatDownline = (startId) => {
-            const result = [];
-            const queue = [startId]; // BFS queue for fast traversal
-            
-            while (queue.length > 0) {
-                const currentId = queue.shift();
-                const children = childrenMap.get(currentId) || [];
-                
-                for (const child of children) {
-                    result.push(child);
-                    queue.push(child.userId);
-                }
-            }
-            return result;
-        };
-
-        // 🟢 2. ALL TEAM (Poora Binary Downline)
+        // 🟢 2. ALL TEAM (Complete Binary Hierarchy via $graphLookup)
         if (type === 'all') {
-            const allTeam = getFlatDownline(userDoc.userId);
-            // Naye log upar dikhane ke liye sort kar rahe hain
+            const result = await User.aggregate([
+                { $match: { userId: rootId } },
+                {
+                    $graphLookup: {
+                        from: "users",                   // Apni collection ka naam ('users')
+                        startWith: "$userId",
+                        connectFromField: "userId",
+                        connectToField: "placementId",   // Placement id ke through downline tree banega
+                        as: "downlineNetwork",
+                        depthField: "level"              // Optional: Kis level pe hai
+                    }
+                },
+                {
+                    $project: {
+                        // Unwind karke array se bahar laane ki zaroorat nahi agar hum frontend ko seedha array de dein.
+                        // Lekin map map function payload bachata hai
+                        downlineNetwork: {
+                            $map: {
+                                input: "$downlineNetwork",
+                                as: "member",
+                                in: {
+                                    _id: "$$member._id",
+                                    name: "$$member.name",
+                                    userId: "$$member.userId",
+                                    sponsorId: "$$member.sponsorId",
+                                    placementId: "$$member.placementId",
+                                    position: "$$member.position",
+                                    isActive: "$$member.isActive",
+                                    currentPackage: "$$member.currentPackage",
+                                    createdAt: "$$member.createdAt",
+                                    level: "$$member.level"
+                                }
+                            }
+                        }
+                    }
+                }
+            ]);
+
+            if (!result || result.length === 0) {
+                return res.status(404).json({ message: "User not found" });
+            }
+
+            // Downline array nikalna and sort by date
+            const allTeam = result[0].downlineNetwork;
             allTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            
             return res.status(200).json(allTeam);
         }
 
         // 🟢 3. LEFT YA RIGHT TEAM
         if (type === 'left' || type === 'right') {
-            const immediateChildren = childrenMap.get(userDoc.userId) || [];
+            // Step A: Pehle immediate bacha dhundo (Target Child)
+            const targetChild = await User.findOne({ placementId: rootId, position: type.toUpperCase() })
+                                          .select('userId');
             
-            // Sabse pehle immediate left ya right bacche ko dhundo
-            const targetChild = immediateChildren.find(c => c.position && c.position.toUpperCase() === type.toUpperCase());
-
-            // Agar left/right me koi nahi juda hai, toh empty array bhej do
             if (!targetChild) {
-                return res.status(200).json([]);
+                return res.status(200).json([]); // Koi team nahi hai is side pe
             }
 
-            // Target child ka poora downline nikalo
-            const downline = getFlatDownline(targetChild.userId);
+            // Step B: Us target child ka poora tree uthao $graphLookup se
+            const result = await User.aggregate([
+                { $match: { userId: targetChild.userId } },
+                {
+                    $graphLookup: {
+                        from: "users",
+                        startWith: "$userId",
+                        connectFromField: "userId",
+                        connectToField: "placementId",
+                        as: "downlineNetwork"
+                    }
+                }
+            ]);
 
-            // Final Array (Root child + Uski poori team)
-            const fullSideTeam = [targetChild, ...downline];
+            // Agar aggregate successful hai, toh root targetChild aur uska downlineNetwork mila do
+            let sideTeam = [];
+            if (result && result.length > 0) {
+                // Target child ko pehle full document uthao clean columns ke sath
+                const rootNode = await User.findOne({ userId: targetChild.userId })
+                                           .select('name userId sponsorId placementId position isActive currentPackage createdAt')
+                                           .lean();
+                
+                // Aggregate ka result format karo payload kam karne ke liye
+                const rawDownline = result[0].downlineNetwork || [];
+                const formattedDownline = rawDownline.map(member => ({
+                    _id: member._id,
+                    name: member.name,
+                    userId: member.userId,
+                    sponsorId: member.sponsorId,
+                    placementId: member.placementId,
+                    position: member.position,
+                    isActive: member.isActive,
+                    currentPackage: member.currentPackage,
+                    createdAt: member.createdAt
+                }));
+
+                sideTeam = [rootNode, ...formattedDownline];
+                sideTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            }
             
-            fullSideTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            return res.status(200).json(fullSideTeam);
+            return res.status(200).json(sideTeam);
         }
 
         return res.status(400).json({ message: "Invalid type parameter" });

@@ -1,11 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { CheckCircle, Clock, Search, Layers, MessageCircle, TrendingUp, Loader2, Users } from 'lucide-react';
-// 🟢 FIX 1: useAuth import kiya
 import { useAuth } from '../../context/AuthContext'; 
 
 const AllTeam = () => {
-  // 🟢 FIX 2: Props hata kar Context se data aur token nikala
   const { user, token } = useAuth(); 
 
   const [members, setMembers] = useState([]);
@@ -18,12 +16,10 @@ const AllTeam = () => {
 
   useEffect(() => {
     const fetchAllTeam = async () => {
-      // 🎯 7-Digit Numeric ID Check
       if (!user?.userId) return;
 
       try {
         setLoading(true);
-        // ✅ Token bhej rahe hain security ke liye
         const res = await axios.post('/api/user/my-team', {
           userId: user.userId,
           type: 'all' 
@@ -42,8 +38,10 @@ const AllTeam = () => {
     fetchAllTeam();
   }, [user?.userId, token]);
 
-  // 🔥 SEARCH LOGIC
+  // 🔥 HIGH-PERFORMANCE SEARCH LOGIC (Cached)
   const filteredMembers = useMemo(() => {
+    if (!searchTerm) return members; // Agar search khali hai toh direct poori list bhejo (Fast)
+    
     const s = searchTerm.toLowerCase();
     return members.filter(m => 
       m.name?.toLowerCase().includes(s) || 
@@ -53,6 +51,7 @@ const AllTeam = () => {
     );
   }, [members, searchTerm]);
 
+  // Reset pagination on search
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   // 📊 PAGINATION LOGIC
@@ -64,9 +63,21 @@ const AllTeam = () => {
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
 
-  // Stats Calculation
-  const activeCount = members.filter(m => m.isActive).length;
-  const totalBusiness = members.reduce((sum, m) => sum + (Number(m.currentPackage) || 0), 0);
+  // 🚀 OPTIMIZATION: Stats Calculation ab hang nahi karega (Memoized)
+  const { activeCount, totalBusiness, todayGrowth } = useMemo(() => {
+    let active = 0;
+    let business = 0;
+    let growth = 0;
+    const todayStr = new Date().toDateString();
+
+    members.forEach(m => {
+      if (m.isActive) active++;
+      business += (Number(m.currentPackage) || 0);
+      if (new Date(m.createdAt).toDateString() === todayStr) growth++;
+    });
+
+    return { activeCount: active, totalBusiness: business, todayGrowth: growth };
+  }, [members]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans min-h-screen">
@@ -110,9 +121,7 @@ const AllTeam = () => {
             <div className="bg-purple-500/30 p-2.5 rounded-lg"><TrendingUp className="text-purple-300" size={24}/></div>
             <div>
                 <p className="text-xs font-medium uppercase text-indigo-200">Today's Growth</p>
-                <h3 className="text-xl font-bold text-purple-300">
-                    +{members.filter(m => new Date(m.createdAt).toDateString() === new Date().toDateString()).length}
-                </h3>
+                <h3 className="text-xl font-bold text-purple-300">+{todayGrowth}</h3>
             </div>
           </div>
         </div>
@@ -148,6 +157,7 @@ const AllTeam = () => {
           <div className="py-16 text-center flex flex-col items-center gap-3">
              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
              <p className="font-medium text-gray-500 text-sm">Mapping Downline Hierarchy...</p>
+             <p className="text-xs text-gray-400 mt-1">If team is huge, this might take a few seconds...</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
@@ -155,7 +165,6 @@ const AllTeam = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No</th>
-                  {/* 🔥 Separate Columns */}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">User ID</th>
                    <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sponsor</th>
@@ -189,8 +198,6 @@ const AllTeam = () => {
                       <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
                         {member.userId || "-"}
                       </td>
-
-                    
 
                       {/* Sponsor */}
                       <td className="px-4 py-3 text-center whitespace-nowrap">

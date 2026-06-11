@@ -25,7 +25,8 @@ const transactionSchema = new mongoose.Schema(
         "TRANSFER_RECEIVED",    // Internal transfer receive
         "INCOME_REINVEST",      // Income se wapas wallet recharge
         "MANUAL_CREDIT",        // Admin ne fund diya
-        "MANUAL_DEBIT"          // Admin ne fund kata
+        "MANUAL_DEBIT",         // Admin ne fund kata
+        "WALLET_FUND"           // 🟢 👈 NAYA FIX: 30% Auto-Wallet credit from withdrawal
       ],
       required: true,
     },

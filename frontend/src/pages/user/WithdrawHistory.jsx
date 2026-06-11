@@ -86,8 +86,8 @@ const WithdrawHistory = () => {
                         <ArrowUpCircle size={28} />
                     </div>
                     <div>
-                        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 uppercase tracking-tight">Cashout History</h2>
-                        <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5">Your Withdrawal Logs</p>
+                        <h2 className="text-xl sm:text-2xl font-bold text-gray-800 uppercase tracking-tight">Withdrawal History</h2>
+                        <p className="text-xs sm:text-sm font-medium text-gray-500 mt-0.5">Your Payouts & Auto-Wallet Deposits</p>
                     </div>
                 </div>
 
@@ -139,9 +139,9 @@ const WithdrawHistory = () => {
                                 <tr>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Sr. No.</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Date & Time</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Gross</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Fee</th>
-                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Net Payable</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Gross (100%)</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">70% Cashout (Net)</th>
+                                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">30% Wallet (Net)</th>
                                     <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Wallet Address</th>
                                     <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
                                 </tr>
@@ -167,10 +167,39 @@ const WithdrawHistory = () => {
                                     </tr>
                                 ) : (
                                     currentItems.map((item, idx) => {
-                                        // Calculations based on your logic
-                                        const gross = Number(item.grossAmount || item.gross || item.amount || 0);
-                                        const fee = Number(item.fee || (gross * 0.10)); 
-                                        const net = Number(item.netAmount || item.net || (gross - fee));
+                                        // 🟢 FIX FOR OLD vs NEW LOGIC
+                                        const itemDate = new Date(item.createdAt).getTime();
+                                        // 11 June 2026, 4:00 PM IST (Cutoff Time)
+                                        const splitLogicCutoff = new Date("2026-06-11T16:00:00+05:30").getTime();
+                                        const isNew7030Logic = itemDate >= splitLogicCutoff;
+
+                                        const dbGross = Number(item.gross || item.grossAmount || item.amount || 0); 
+                                        
+                                        let totalRequested, cashoutFee, cashoutNet, walletGross, walletFee, walletNet;
+
+                                        if (isNew7030Logic) {
+                                            // New System: DB Gross is 70%
+                                            totalRequested = dbGross / 0.70; 
+                                            
+                                            cashoutFee = Number(item.fee || (dbGross * 0.10)); 
+                                            cashoutNet = Number(item.net || item.netAmount || (dbGross - cashoutFee));
+
+                                            walletGross = totalRequested * 0.30;
+                                            walletFee = walletGross * 0.10;
+                                            walletNet = walletGross - walletFee;
+                                        } else {
+                                            // Old System: DB Gross was 100%
+                                            totalRequested = dbGross;
+                                            
+                                            cashoutFee = Number(item.fee || (dbGross * 0.10)); 
+                                            cashoutNet = Number(item.net || item.netAmount || (dbGross - cashoutFee));
+
+                                            // Wallet part didn't exist
+                                            walletGross = 0;
+                                            walletFee = 0;
+                                            walletNet = 0;
+                                        }
+
                                         const status = item.status || 'pending';
 
                                         return (
@@ -196,19 +225,29 @@ const WithdrawHistory = () => {
                                                     </div>
                                                 </td>
 
-                                                {/* Gross */}
+                                                {/* Gross Amount (100%) */}
                                                 <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="text-sm font-bold text-gray-600">${gross.toFixed(2)}</span>
+                                                    <span className="text-sm font-black text-gray-800">${totalRequested.toFixed(2)}</span>
                                                 </td>
 
-                                                {/* Fee */}
+                                                {/* 70% Cashout (Net) / Or 100% for old */}
                                                 <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="text-sm font-bold text-rose-500">-${fee.toFixed(2)}</span>
+                                                    <div className="flex flex-col">
+                                                        <span className="text-sm font-bold text-orange-600">${cashoutNet.toFixed(2)}</span>
+                                                        <span className="text-[10px] font-semibold text-gray-400">Fee: -${cashoutFee.toFixed(2)}</span>
+                                                    </div>
                                                 </td>
 
-                                                {/* Net Payable */}
+                                                {/* 30% Auto-Wallet (Net) */}
                                                 <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="text-base font-bold text-emerald-600">${net.toFixed(2)}</span>
+                                                    {isNew7030Logic ? (
+                                                        <div className="flex flex-col">
+                                                            <span className="text-sm font-bold text-emerald-600">${walletNet.toFixed(2)}</span>
+                                                            <span className="text-[10px] font-semibold text-gray-400">Fee: -${walletFee.toFixed(2)}</span>
+                                                        </div>
+                                                    ) : (
+                                                        <span className="text-sm font-bold text-gray-400">-</span>
+                                                    )}
                                                 </td>
 
                                                 {/* Wallet Address */}
