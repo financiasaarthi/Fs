@@ -43,11 +43,28 @@ const DirectTeam = () => {
       m.name?.toLowerCase().includes(s) || 
       m.userId?.toString().includes(s) ||
       m.mobile?.toString().includes(s) ||
-      m.email?.toLowerCase().includes(s) // Added email search support
+      m.email?.toLowerCase().includes(s)
     );
   }, [members, searchTerm]);
 
   useEffect(() => { setCurrentPage(1); }, [searchTerm]);
+
+  // 🚀 OPTIMIZATION: Stats Calculation (Ab Tasks Done me unko ginega jinhone video dekhi hai)
+  const { activeCount, tasksWorking, todayNew } = useMemo(() => {
+    let active = 0;
+    let tasks = 0;
+    let today = 0;
+    const todayStr = new Date().toDateString();
+
+    members.forEach(m => {
+      if (m.isActive) active++;
+      // Agar ek bhi video dekha hai, toh Task Done list me aayega
+      if ((m.dailyVideosWatched && m.dailyVideosWatched > 0) || m.taskCompletedToday) tasks++;
+      if (m.createdAt && new Date(m.createdAt).toDateString() === todayStr) today++;
+    });
+
+    return { activeCount: active, tasksWorking: tasks, todayNew: today };
+  }, [members]);
 
   // 🔥 PAGINATION LOGIC
   const indexOfLast = currentPage * entriesPerPage;
@@ -57,6 +74,23 @@ const DirectTeam = () => {
 
   const handlePrev = () => currentPage > 1 && setCurrentPage(currentPage - 1);
   const handleNext = () => currentPage < totalPages && setCurrentPage(currentPage + 1);
+
+  // 🟢 Helper Function: Find Max Tasks based on ALL Active Packages (SUM)
+  const getMaxTasks = (member) => {
+      let totalTasks = 0;
+      // Agar activePackages array hai, toh usko use karo, warna currentPackage ko list me daalo
+      const pkgs = member.activePackages?.length > 0 ? member.activePackages : (member.currentPackage ? [member.currentPackage] : []);
+      
+      pkgs.forEach(pkg => {
+          if (pkg === 10) totalTasks += 2;
+          else if (pkg === 30) totalTasks += 6;
+          else if (pkg === 50) totalTasks += 10;
+          else if (pkg === 100) totalTasks += 20;
+          else if (pkg === 500) totalTasks += 50;
+      });
+
+      return totalTasks;
+  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-6 sm:py-8 font-sans bg-gray-50 min-h-screen">
@@ -81,21 +115,21 @@ const DirectTeam = () => {
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
           <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Active Plans</h3>
           <p className="text-2xl sm:text-3xl font-bold text-emerald-600 mt-1 sm:mt-2">
-            {members.filter(m => m.isActive).length}
+            {activeCount}
           </p>
         </div>
 
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
-          <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Tasks Done</h3>
+          <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Members Working</h3>
           <p className="text-2xl sm:text-3xl font-bold text-indigo-600 mt-1 sm:mt-2">
-            {members.filter(m => m.taskCompletedToday).length}
+            {tasksWorking}
           </p>
         </div>
 
         <div className="bg-white rounded-xl p-4 sm:p-5 border border-gray-200 shadow-sm">
           <h3 className="text-gray-500 text-xs sm:text-sm font-semibold uppercase tracking-wider">Today's New</h3>
           <p className="text-2xl sm:text-3xl font-bold text-blue-600 mt-1 sm:mt-2">
-            {members.filter(m => new Date(m.createdAt).toDateString() === new Date().toDateString()).length}
+            {todayNew}
           </p>
         </div>
       </div>
@@ -136,15 +170,12 @@ const DirectTeam = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">S.No</th>
-                  {/* 🔥 Naye Separate Columns yahan add kiye hain */}
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Name</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">User ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Email</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Mobile</th>
-                  
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Tree Side</th>
                   <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Active Plan</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Task Status</th>
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Task Progress</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-600 uppercase tracking-wider whitespace-nowrap">Join Date</th>
                 </tr>
               </thead>
@@ -156,89 +187,98 @@ const DirectTeam = () => {
                     </td>
                   </tr>
                 ) : (
-                  currentItems.map((member, index) => (
-                    <tr key={member._id || index} className="hover:bg-gray-50 transition-colors">
-                      
-                      {/* S.No */}
-                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
-                        {indexOfFirst + index + 1}
-                      </td>
-                      
-                      {/* 🔥 Separate Name */}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
-                        {member.name || "-"}
-                      </td>
+                  currentItems.map((member, index) => {
+                    const maxTasks = getMaxTasks(member);
+                    const watchedTasks = member.dailyVideosWatched || 0;
+                    const isFullyDone = watchedTasks >= maxTasks && maxTasks > 0;
 
-                      {/* 🔥 Separate User ID */}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
-                        {member.userId || "-"}
-                      </td>
+                    return (
+                      <tr key={member._id || index} className="hover:bg-gray-50 transition-colors">
+                        
+                        {/* S.No */}
+                        <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
+                          {indexOfFirst + index + 1}
+                        </td>
+                        
+                        {/* Name */}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-bold text-gray-900">
+                          {member.name || "-"}
+                        </td>
 
-                      {/* 🔥 Separate Email */}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                        {member.email || "-"}
-                      </td>
+                        {/* User ID */}
+                        <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-indigo-600">
+                          {member.userId || "-"}
+                        </td>
 
-                      {/* 🔥 Separate Mobile + WhatsApp Click */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        {member.mobile ? (
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium text-gray-800">{member.mobile}</span>
-                            {/* WhatsApp Link - Direct redirect to app/web */}
-                            <a 
-                              href={`https://wa.me/${member.mobile}`} 
-                              target="_blank" 
-                              rel="noreferrer" 
-                              className="bg-emerald-100 p-1.5 rounded-full text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm"
-                              title="Chat on WhatsApp"
-                            >
-                              <MessageCircle size={14} /> 
-                            </a>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-gray-400">-</span>
-                        )}
-                      </td>
+                        {/* Mobile + WhatsApp Click */}
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          {member.mobile ? (
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-800">{member.mobile}</span>
+                              <a 
+                                href={`https://wa.me/${member.mobile}`} 
+                                target="_blank" 
+                                rel="noreferrer" 
+                                className="bg-emerald-100 p-1.5 rounded-full text-emerald-600 hover:bg-emerald-500 hover:text-white transition-colors shadow-sm"
+                                title="Chat on WhatsApp"
+                              >
+                                <MessageCircle size={14} /> 
+                              </a>
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">-</span>
+                          )}
+                        </td>
 
-                      {/* Tree Side */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${member.position === 'LEFT' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
-                          {member.position || "-"}
-                        </span>
-                      </td>
+                        {/* Tree Side */}
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          <span className={`inline-block px-2.5 py-1 rounded-full text-xs font-semibold ${member.position === 'LEFT' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {member.position || "-"}
+                          </span>
+                        </td>
 
-                      {/* Active Plan */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        {member.isActive ? (
-                          <div className="flex flex-col items-center">
-                            <span className="text-sm font-bold text-gray-900">${member.currentPackage || 0}</span>
-                            <span className="text-[10px] font-bold text-emerald-600 uppercase bg-emerald-100 px-1.5 py-0.5 rounded mt-0.5">Premium</span>
-                          </div>
-                        ) : (
-                          <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">No Plan</span>
-                        )}
-                      </td>
+                        {/* Active Plan */}
+                        <td className="px-4 py-3 text-center whitespace-nowrap">
+                          {member.isActive ? (
+                            <div className="flex flex-col items-center">
+                              <span className="text-sm font-bold text-gray-900">${member.currentPackage || 0}</span>
+                              {member.activePackages?.length > 1 && (
+                                <span className="text-[9px] font-bold text-blue-600 uppercase bg-blue-100 px-1.5 py-0.5 rounded mt-0.5">+{member.activePackages.length - 1} More</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">No Plan</span>
+                          )}
+                        </td>
 
-                      {/* Task Status */}
-                      <td className="px-4 py-3 whitespace-nowrap text-center">
-                         {member.taskCompletedToday ? (
-                           <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-emerald-200">
-                             <CheckCircle size={14} /> Done
-                           </span>
-                         ) : (
-                           <span className="inline-flex items-center gap-1 bg-red-50 text-red-700 px-2.5 py-1 rounded-full text-xs font-semibold border border-red-200">
-                             <Clock size={14} /> Pending
-                           </span>
-                         )}
-                      </td>
+                        {/* 🔥 Task Progress (Exact Calculation) */}
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                           {member.isActive ? (
+                               <div className="flex flex-col items-center">
+                                  <span className="text-xs font-black text-indigo-700">
+                                      {watchedTasks} <span className="text-gray-400 font-medium">/ {maxTasks}</span>
+                                  </span>
+                                  {isFullyDone ? (
+                                     <span className="text-[9px] font-bold text-emerald-600 uppercase bg-emerald-100 px-1.5 py-0.5 rounded mt-0.5">Done</span>
+                                  ) : watchedTasks > 0 ? (
+                                     <span className="text-[9px] font-bold text-blue-600 uppercase bg-blue-100 px-1.5 py-0.5 rounded mt-0.5">Working</span>
+                                  ) : (
+                                     <span className="text-[9px] font-bold text-orange-600 uppercase bg-orange-100 px-1.5 py-0.5 rounded mt-0.5">Pending</span>
+                                  )}
+                               </div>
+                           ) : (
+                               <span className="text-xs font-medium text-gray-400">-</span>
+                           )}
+                        </td>
 
-                      {/* Join Date */}
-                      <td className="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">
-                        {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '---'}
-                      </td>
+                        {/* Join Date */}
+                        <td className="px-4 py-3 text-right whitespace-nowrap text-sm text-gray-600">
+                          {member.createdAt ? new Date(member.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '---'}
+                        </td>
 
-                    </tr>
-                  ))
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>

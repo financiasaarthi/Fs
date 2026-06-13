@@ -13,6 +13,7 @@ import ReferralBox from '../../components/ReferralBox';
 import Modals from '../../components/Modals/Modals'; 
 import ActivePackageCard from '../../components/ActivePackageCard';
 import IncomeStats from '../../components/IncomeStats'; 
+import TelegramBanner from '../../components/TelegramBanner'; // 🔵 TELEGRAM BANNER IMPORT KIYA
 
 const Dashboard = () => {
   // ✅ updateUser aur token bhi nikala taaki data sync kar sakein
@@ -55,11 +56,14 @@ const Dashboard = () => {
       {/* 🟢 NEW LAYOUT GRID: Ye Grid Mobile aur PC dono me perfectly adjust karega */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
         
-        {/* 1. BALANCE CARD (PC: Top Left | Mobile: 1st) */}
-        <div className="col-span-1 lg:col-span-1 order-1 lg:order-1 h-full">
-           <div className="bg-white p-0.5 rounded-3xl shadow-sm border border-gray-100 overflow-hidden h-full">
+        {/* 1. BALANCE CARD & TELEGRAM (PC: Top Left | Mobile: 1st) */}
+        <div className="col-span-1 lg:col-span-1 order-1 lg:order-1 flex flex-col gap-3 sm:gap-6">
+           <div className="bg-white p-0.5 rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
              <BalanceCard user={user} />
            </div>
+           
+           {/* 🔵 TELEGRAM BANNER YAHAN LAGA DIYA HAI - Balance ke theek niche */}
+           <TelegramBanner />
         </div>
 
         {/* 2. REFERRAL BOX (PC: Top Middle | Mobile: 4th) */}

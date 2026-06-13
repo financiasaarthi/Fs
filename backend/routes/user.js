@@ -1193,34 +1193,34 @@ router.post('/my-team', async (req, res) => {
 
         if (!rootId) return res.status(400).json({ message: "Invalid User ID" });
 
-        // 🟢 1. DIRECT TEAM (Sponsor id ke base par - SUPER FAST)
+        // 🟢 FIX: Yahan 'activePackages' aur 'dailyVideosWatched' add kiya hai
+        const requiredFields = 'name userId sponsorId placementId position isActive currentPackage activePackages createdAt mobile email taskCompletedToday dailyVideosWatched';
+
+        // 1. DIRECT TEAM
         if (type === 'direct') {
             const directs = await User.find({ sponsorId: rootId })
-                // Sirf Frontend ki zaroorat ka data bhejo (Payload kam karne ke liye)
-                .select('name userId sponsorId position isActive currentPackage createdAt')
+                .select(requiredFields)
                 .sort({ createdAt: -1 })
                 .lean();
             return res.status(200).json(directs);
         }
 
-        // 🟢 2. ALL TEAM (Complete Binary Hierarchy via $graphLookup)
+        // 2. ALL TEAM (Complete Binary Hierarchy)
         if (type === 'all') {
             const result = await User.aggregate([
                 { $match: { userId: rootId } },
                 {
                     $graphLookup: {
-                        from: "users",                   // Apni collection ka naam ('users')
+                        from: "users",                   
                         startWith: "$userId",
                         connectFromField: "userId",
-                        connectToField: "placementId",   // Placement id ke through downline tree banega
+                        connectToField: "placementId",   
                         as: "downlineNetwork",
-                        depthField: "level"              // Optional: Kis level pe hai
+                        depthField: "level"              
                     }
                 },
                 {
                     $project: {
-                        // Unwind karke array se bahar laane ki zaroorat nahi agar hum frontend ko seedha array de dein.
-                        // Lekin map map function payload bachata hai
                         downlineNetwork: {
                             $map: {
                                 input: "$downlineNetwork",
@@ -1234,6 +1234,9 @@ router.post('/my-team', async (req, res) => {
                                     position: "$$member.position",
                                     isActive: "$$member.isActive",
                                     currentPackage: "$$member.currentPackage",
+                                    activePackages: "$$member.activePackages", // 👈 Added
+                                    dailyVideosWatched: "$$member.dailyVideosWatched", // 👈 Added
+                                    taskCompletedToday: "$$member.taskCompletedToday", // 👈 Added
                                     createdAt: "$$member.createdAt",
                                     level: "$$member.level"
                                 }
@@ -1243,28 +1246,19 @@ router.post('/my-team', async (req, res) => {
                 }
             ]);
 
-            if (!result || result.length === 0) {
-                return res.status(404).json({ message: "User not found" });
-            }
+            if (!result || result.length === 0) return res.status(404).json({ message: "User not found" });
 
-            // Downline array nikalna and sort by date
             const allTeam = result[0].downlineNetwork;
             allTeam.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
             return res.status(200).json(allTeam);
         }
 
-        // 🟢 3. LEFT YA RIGHT TEAM
+        // 3. LEFT YA RIGHT TEAM
         if (type === 'left' || type === 'right') {
-            // Step A: Pehle immediate bacha dhundo (Target Child)
-            const targetChild = await User.findOne({ placementId: rootId, position: type.toUpperCase() })
-                                          .select('userId');
+            const targetChild = await User.findOne({ placementId: rootId, position: type.toUpperCase() }).select('userId');
             
-            if (!targetChild) {
-                return res.status(200).json([]); // Koi team nahi hai is side pe
-            }
+            if (!targetChild) return res.status(200).json([]); 
 
-            // Step B: Us target child ka poora tree uthao $graphLookup se
             const result = await User.aggregate([
                 { $match: { userId: targetChild.userId } },
                 {
@@ -1278,15 +1272,12 @@ router.post('/my-team', async (req, res) => {
                 }
             ]);
 
-            // Agar aggregate successful hai, toh root targetChild aur uska downlineNetwork mila do
             let sideTeam = [];
             if (result && result.length > 0) {
-                // Target child ko pehle full document uthao clean columns ke sath
                 const rootNode = await User.findOne({ userId: targetChild.userId })
-                                           .select('name userId sponsorId placementId position isActive currentPackage createdAt')
+                                           .select(requiredFields)
                                            .lean();
                 
-                // Aggregate ka result format karo payload kam karne ke liye
                 const rawDownline = result[0].downlineNetwork || [];
                 const formattedDownline = rawDownline.map(member => ({
                     _id: member._id,
@@ -1297,6 +1288,9 @@ router.post('/my-team', async (req, res) => {
                     position: member.position,
                     isActive: member.isActive,
                     currentPackage: member.currentPackage,
+                    activePackages: member.activePackages, // 👈 Added
+                    dailyVideosWatched: member.dailyVideosWatched, // 👈 Added
+                    taskCompletedToday: member.taskCompletedToday, // 👈 Added
                     createdAt: member.createdAt
                 }));
 
