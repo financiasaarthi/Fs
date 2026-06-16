@@ -31,12 +31,7 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
         
         if (!user || !user.userId) return setError("Session expired. Please login.");
 
-        // 🟢 FIX: Check for Minimum $30 Package on Frontend
-        if (!user.currentPackage || user.currentPackage < 30) {
-            return setError("You need an active package of at least $30 to convert funds.");
-        }
-
-        // 🟢 FIX: Minimum $10 Transfer Condition
+        // 🟢 FIX: Minimum $10 Transfer Condition (Sirf ye rakha hai)
         if (totalSelected < 10) {
             return setError("Minimum transfer amount is $10.");
         }
@@ -98,7 +93,7 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
     return (
         <>
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 border-t-4 border-t-emerald-500 animate-in zoom-in duration-200 relative max-h-[90vh] flex flex-col">
+                <div className="bg-white w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden border border-gray-100 border-t-4 border-t-emerald-50 animate-in zoom-in duration-200 relative max-h-[90vh] flex flex-col">
                     
                     <div className="p-6 flex justify-between items-center border-b border-gray-50 bg-gray-50/50 shrink-0">
                         <div className="flex items-center gap-3">
@@ -176,12 +171,9 @@ const IncomeToWalletModal = ({ isOpen, onClose }) => {
                                     </div>
                                 </div>
 
-                                
-
                                 <div className="sticky bottom-0 pt-2 pb-2 bg-gray-50/30">
                                     <button 
                                         type="submit" 
-                                        // 🟢 FIX: Button disabled if amount is less than 10
                                         disabled={loading || totalSelected < 10}
                                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-4 rounded-2xl shadow-lg transition-all active:scale-[0.98] uppercase text-[10px] tracking-[0.2em] flex items-center justify-center gap-2 disabled:bg-gray-200 disabled:text-gray-400 disabled:shadow-none"
                                     >

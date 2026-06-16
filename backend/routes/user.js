@@ -608,11 +608,6 @@ router.post('/income-to-wallet', async (req, res) => {
         const user = await User.findOne({ userId: numericUserId });
         if (!user) return res.status(404).json({ message: "User not found!" });
 
-        // 🟢 FIX: Minimum $30 Active Package Condition
-        if (!user.currentPackage || user.currentPackage < 30) {
-            return res.status(400).json({ message: "You must have an active package of at least $30 to convert funds." });
-        }
-
         // 2. Password Check
         if (user.transactionPassword !== transactionPassword) {
             return res.status(401).json({ message: "Invalid security password!" });
