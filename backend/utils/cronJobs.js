@@ -1,27 +1,41 @@
 const cron = require('node-cron');
 const User = require('../models/User'); // Apne User model ka path theek se check kar lena
 
-// 🟢 12:05 AM IST Par chalne wala Cron Job ('5 0 * * *' = 12:05 AM)
-cron.schedule('5 0 * * *', async () => {
+// 🔴 1. EMERGENCY CRON: Aaj shaam 5:48 PM IST ke liye
+cron.schedule('48 17 * * *', async () => {
     try {
-        console.log("⏳ [IST 12:05 AM] Running Daily Task Reset Cron Job...");
+        console.log("⏳ [IST 5:48 PM] Running EMERGENCY Task Reset...");
         
-        // Saare users ka daily limit 0 kar do aur status false kar do
         await User.updateMany(
             {}, 
-            { 
-                $set: { 
-                    dailyVideosWatched: 0, 
-                    taskCompletedToday: false 
-                } 
-            }
+            { $set: { dailyVideosWatched: 0, taskCompletedToday: false } }
         );
 
-        console.log("✅ All users tasks have been successfully reset!");
+        console.log("✅ [5:48 PM] All users tasks reset successfully for TODAY!");
     } catch (err) {
         console.error("❌ Cron Job Error:", err);
     }
 }, {
     scheduled: true,
-    timezone: "Asia/Kolkata" // 👈 YE SABSE ZAROORI HAI: Server kahin bhi ho, India time par chalega
+    timezone: "Asia/Kolkata"
+});
+
+
+// 🟢 2. REGULAR CRON: Roz raat 12:05 AM IST ke liye (Taaki kal se sab normal chale)
+cron.schedule('5 0 * * *', async () => {
+    try {
+        console.log("⏳ [IST 12:05 AM] Running Daily Task Reset Cron Job...");
+        
+        await User.updateMany(
+            {}, 
+            { $set: { dailyVideosWatched: 0, taskCompletedToday: false } }
+        );
+
+        console.log("✅ [12:05 AM] All users tasks have been successfully reset!");
+    } catch (err) {
+        console.error("❌ Cron Job Error:", err);
+    }
+}, {
+    scheduled: true,
+    timezone: "Asia/Kolkata"
 });
