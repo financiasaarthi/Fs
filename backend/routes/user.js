@@ -288,13 +288,22 @@ router.post('/buy-package-for-user', async (req, res) => {
         // 1. Buyer se paise kato
         buyer.walletBalance -= amount;
 
-        // 2. Target ka Package aur Capping Add (Push) karo
+        // 2. Target ka Package aur Capping Add karo
         targetUser.isActive = true;
         if (!targetUser.activePackages) targetUser.activePackages = [];
+
+        // 🔥 AUTO-$10 TOPUP LOGIC (Naya Add Kiya)
+        // Agar amount 10 se bada hai AUR user ke paas pehle se 10 ka package nahi hai
+        if (amount > 10 && !targetUser.activePackages.includes(10)) {
+            targetUser.activePackages.push(10); // Automatically 10 wala package de do
+            targetUser.totalCap = (targetUser.totalCap || 0) + (10 * 2); // 10 ka capping bhi add kar do (Optional, agar capping badhani ho)
+        }
+
+        // Main Package jo usne kharida hai wo add karo
         targetUser.activePackages.push(amount);
         targetUser.currentPackage = Math.max(targetUser.currentPackage || 0, amount);
 
-        // Capping ko Plus (+) karo
+        // Main Package ki Capping ko Plus (+) karo
         const newCap = (amount * 2); 
         targetUser.totalCap = (targetUser.totalCap || 0) + newCap; 
 
@@ -360,8 +369,6 @@ router.post('/buy-package-for-user', async (req, res) => {
         await Promise.all(dbOperations);
 
         // 🚀 SUPER FIX FOR "LEFT/RIGHT" TIME DELAY: 
-        // Notice yahan humne 'await' HATA diya hai. 
-        // Isse binary loop aaram se background mein count hota rahega aur API turant response degi.
         if (amount > 10 && targetUser.placementId && targetUser.position && targetUser.position !== 'NONE') {
             updateUplineBusiness(targetUser.placementId, targetUser.position, amount)
                 .catch(err => console.error("Background Upline Update Failed:", err));
@@ -378,7 +385,6 @@ router.post('/buy-package-for-user', async (req, res) => {
         res.status(500).json({ message: "Server error during package purchase." });
     }
 });
-
 
 
 router.post('/promo-dummy-topup', authMiddleware, async (req, res) => {

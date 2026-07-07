@@ -13,7 +13,8 @@ import ReferralBox from '../../components/ReferralBox';
 import Modals from '../../components/Modals/Modals'; 
 import ActivePackageCard from '../../components/ActivePackageCard';
 import IncomeStats from '../../components/IncomeStats'; 
-import TelegramBanner from '../../components/TelegramBanner'; // 🔵 TELEGRAM BANNER IMPORT KIYA
+import TelegramBanner from '../../components/TelegramBanner'; 
+import UpgradeTimerBanner from '../../components/UpgradeTimerBanner'; // 🔴 TIMER BANNER IMPORT KIYA
 
 const Dashboard = () => {
   // ✅ updateUser aur token bhi nikala taaki data sync kar sakein
@@ -53,6 +54,9 @@ const Dashboard = () => {
   return (
     <div className="max-w-7xl mx-auto px-1 sm:px-6 lg:px-8 py-2 sm:py-8 space-y-3 sm:space-y-6 font-sans bg-gray-50/30 min-h-screen">
       
+      {/* 🔴 NEW UPGRADE BANNER: 30 June ke baad wale $10 users ke liye */}
+      <UpgradeTimerBanner user={user} />
+
       {/* 🟢 NEW LAYOUT GRID: Ye Grid Mobile aur PC dono me perfectly adjust karega */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 sm:gap-6">
         
